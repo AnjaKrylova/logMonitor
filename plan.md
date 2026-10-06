@@ -224,10 +224,15 @@ type LogEntry struct {
     Message   string
     ErrorCode string          // e.g. "FETCH_CLIENT_ERROR_REQUEST_TIMEOUT"
     Fields    map[string]any
+    Raw       string          // original log line, always set (parsed or not)
 }
 ```
 
 The `Fields` map allows custom structured logging data to be preserved.
+
+`Raw` is set on **every** entry, not only on entries that failed to parse.
+It is the safety net for the lenient parsers: a wrong or partial parse can
+always be inspected, displayed as-is, or re-parsed later with a better parser.
 
 Example:
 
@@ -494,7 +499,7 @@ type LogEntry struct {
 - [x] Define `LogEntry` struct using `LogLevel`, `Container`, and `ErrorCode`.
 - [x] Implement `ParseLogLevel(s string) (LogLevel, error)`.
 - [x] Implement `(l LogEntry) IsError() bool`.
-- [ ] Write unit tests in `internal/logs/log_test.go` covering all levels, case insensitivity, and invalid strings.// will be done much later
+- [x] Retrofit unit tests in `internal/logs/log_test.go` (written before TDD was adopted): all levels, case insensitivity, whitespace, empty string, and invalid strings via a `wantErr` column
 
 ---
 
@@ -523,7 +528,15 @@ Stage-2 parsers never return an error. They parse as much as they can and
 fall back for whatever they can't:
 
 - Unknown or missing level -> `LevelUnknown` (new constant in `log.go`)
-- The original line is always kept in `LogEntry.Raw`
+- The original line is always kept in `LogEntry.Raw` — on **every** entry,
+  fully parsed or not. Parsing only *adds* structured fields on top of the
+  raw line; it never replaces it.
+- `Raw` is captured once, by `ParseEnvelope`, into `Envelope.Raw`. Every
+  stage-2 parser copies `env.Raw` into `entry.Raw`, so each parser returns a
+  complete entry that its own tests can check. `ParseEnvelope` sets `Raw`
+  even when it fails, so there is no separate fallback path for it.
+  `TestParseLog` asserts `entry.Raw == rawLine` in every case to catch a parser
+  that forgets the copy.
 - Low-level helpers that can genuinely fail (e.g. `ParseLogLevel`) stay
   strict and return an error; the stage-2 parser catches it and applies the
   fallback. Low-level code reports problems, high-level code chooses policy.
@@ -540,10 +553,24 @@ type Envelope struct {
     Timestamp time.Time
     Container string // e.g. "web-1", "router"
     Payload   string // the raw inner content
+    Raw       string // the full original line
 }
 
 func ParseEnvelope(line string) (Envelope, error)
 ```
+
+- Nothing in the line is required. `Raw` is **always** set, on success and
+  on error.
+- The timestamp is parsed **first** (date, time, offset — the zone
+  abbreviation is skipped only when it is a separate word).
+- `[container]` is optional. Missing → `Container = ""` and everything after
+  the timestamp is `Payload`.
+- No parsable timestamp → returns a usable envelope **and** an error (same
+  pattern as `ParseLogLevel`): zero `Timestamp`, `Container = ""`, the whole
+  trimmed line as `Payload`, and `Raw`. The error tells the caller that it
+  must supply the timestamp itself.
+- The app name is not in the envelope; it comes from the ingestion source
+  (with the payload's `app.name` as a fallback).
 
 ### 2. Stage 2A — App JSON Log Parser
 
@@ -576,9 +603,28 @@ Fallbacks:
 
 | Problem                               | Fallback                                         |
 | ------------------------------------- | ------------------------------------------------ |
-| Invalid JSON (plain text, stack trace) | `Message = env.Payload`, `Level = LevelUnknown` |
+| Invalid JSON (plain text, stack trace) | `Message = env.Payload`, `Level = LevelUnknown`, `Timestamp = env.Timestamp` |
 | Unknown or missing `level`            | `Level = LevelUnknown`                           |
-| Missing `timestamp` (would be 1970)   | `Timestamp = env.Timestamp`                      |
+| Missing `app`, `message`, `data`      | Zero values (`""`) — no special handling needed  |
+
+The app logger always writes `timestamp`, so JSON payloads are not tested for a
+missing one. Non-JSON payloads have no timestamp and use `env.Timestamp`.
+
+Decision: a field with the wrong type (e.g. `"app":{"name":123}`) makes
+`json.Unmarshal` return a `*json.UnmarshalTypeError` but still fills every
+other field it could decode — keep that partial entry. Only a
+`*json.SyntaxError` (not JSON at all, truncated, empty) falls back to plain
+text. Use `errors.As` to tell them apart.
+
+A wrong-type field is left at its Go zero value. That is harmless for every
+field (`""`, `LevelUnknown`) **except `timestamp`**: `0` becomes
+`time.UnixMilli(0)` = 1970, which would put the entry in the wrong hour bucket
+and outside every time-range query. Rule: `parsedAppLog.Timestamp == 0` →
+use `env.Timestamp`. (Also covers a bare JSON value such as `42`.)
+
+Later (optional): record which field was malformed, e.g.
+`Fields["parse_error"]` from `UnmarshalTypeError.Field`, to monitor apps that
+send malformed logs. `Raw` already preserves the original.
 
 ### 3. Stage 2B — Router Logfmt Parser
 
@@ -628,13 +674,17 @@ Coordinates the pipeline:
 1. `ParseEnvelope(rawLine)`
 2. If `env.Container == "router"`, calls `ParseRouterLog(env)`
 3. Otherwise calls `ParseAppLog(env)` (it handles non-JSON payloads itself)
-4. Sets `entry.Raw = rawLine`
-5. Returns the unified `LogEntry`
+4. Returns the unified `LogEntry` (`Raw` already set via the envelope)
 
-Open decision: `ParseEnvelope` is now the only parser that can fail (missing
-brackets, bad timestamp). Decide whether such lines are dropped or stored with
-a fallback (e.g. receive time as timestamp, `LevelUnknown`, plus `Raw`) — and
-therefore whether `ParseLog` returns an `error` at all.
+Decided: no line is dropped. When `ParseEnvelope` returns an error, its
+envelope is still usable (`Raw` + whole line as `Payload`), so `ParseLog`
+continues with stage 2 as usual (`Container = ""` → `ParseAppLog`).
+
+Remaining decision: where the fallback timestamp comes from when the line has
+none. Suggested: the receive time, passed in by the caller —
+`ParseLog(rawLine string, receivedAt time.Time) LogEntry` — so tests stay
+deterministic (never call `time.Now()` inside a parser). With that, `ParseLog`
+no longer needs to return an `error`.
 
 ## Exercises
 
@@ -642,11 +692,13 @@ therefore whether `ParseLog` returns an `error` at all.
 - [x] Implement `ParseAppLog(env Envelope) (LogEntry, error)` with `time.UnixMilli`
 - [x] Implement `parseLogfmt` with table-driven tests
 - [x] Make `parseLogfmt` lenient: signature `map[string]string` (no `error`), rules above applied, single store guarded by `key != ""` (16 cases passing)
-- [ ] Add `LevelUnknown` constant and `Raw string` field to `LogEntry` in `log.go`
-- [ ] Make `ParseAppLog` lenient: signature `LogEntry` (no `error`), apply the fallbacks above, add tests (invalid JSON, unknown level, missing timestamp)
-- [ ] Implement `ParseRouterLog(env Envelope) LogEntry` with `LevelUnknown` fallback
-- [ ] Implement top-level `ParseLog(rawLine string) (LogEntry, error)`
-- [ ] Write unit tests verifying parsing of real Scalingo router & app error samples
+- [x] Re-add `LevelUnknown` constant and `Raw string` field to `LogEntry` in `log.go`
+- [x] TDD lenient `ParseEnvelope`: timestamp first, optional `[container]`, `Raw` always set, usable envelope + error when the timestamp is missing
+- [x] TDD `ParseAppLog` lenient (signature `LogEntry`, no `error`, copies `env.Raw`)
+- [ ] **Next:** TDD zero-timestamp fallback in `ParseAppLog`: add rows `"wrong-type timestamp falls back to envelope time"` (`"timestamp":"2025-09-08"`) and bare `42` payload, both expecting `Timestamp: envTime`; watch them fail with 1970, then fix
+- [ ] Optional: try `errors.AsType[*json.SyntaxError](err)` (generic form suggested by the editor) instead of `errors.As`
+- [ ] TDD `ParseRouterLog(env Envelope) LogEntry`: write `TestParseRouterLog` first with the real router sample plus status → level cases (2xx/3xx, 4xx, 5xx, missing, non-numeric), then implement
+- [ ] TDD `ParseLog`: decide the fallback-timestamp source (suggested `receivedAt` parameter), encode it in `TestParseLog` (router line, app line, line without timestamp, garbage line), asserting `entry.Raw == rawLine` in **every** case, then implement
 
 ---
 
@@ -1499,7 +1551,12 @@ The API should have explicit timezone semantics.
 
 ---
 
-# Exercise 20 — Testing
+# Exercise 20 — Testing Review
+
+Unit tests are written test-first in every exercise (see the Development
+Philosophy), so this exercise does not introduce testing. It is an audit:
+fill gaps, add the higher-level tests that span several exercises, and
+learn the remaining tools (`httptest`, `t.Cleanup`, `-race`, coverage, benchmarks).
 
 Use Go's native testing system.
 
@@ -1738,7 +1795,7 @@ The complete learning path:
 03. JSON + validation
 04. Errors
 05. Interfaces
-06. Unit tests
+06. Unit tests (written test-first from step 02 onward)
 07. Goroutines
 08. Channels
 09. Worker pools
@@ -1972,16 +2029,21 @@ Most importantly, these concepts will be learned in the context of a real backen
 
 # 19. Recommended Development Philosophy
 
-For each exercise:
+Every step is built test-first (TDD). Tests are never deferred to the end.
+
+For each step of an exercise:
 
 1. Read the requirements.
-2. Implement it yourself.
-3. Run it.
-4. Write tests.
-5. Intentionally break it.
-6. Observe what happens.
-7. Fix it.
-8. Only then move to the next exercise.
+2. **Red** — write a failing test that describes the behaviour (table-driven where it fits).
+3. Run it and watch it fail for the expected reason.
+4. **Green** — write the smallest implementation that makes it pass.
+5. **Refactor** — clean up while the tests stay green.
+6. Intentionally break it and observe which test catches it.
+7. Only then move to the next step.
+
+The test table is the spec: when a design decision changes, the `want` values change first.
+Where real code is hard to test (HTTP, Redis, goroutines, time), the test-first step
+is also where you design the seam — an interface, an injected clock, `httptest`.
 
 Avoid copying a complete implementation.
 

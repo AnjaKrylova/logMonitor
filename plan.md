@@ -693,9 +693,9 @@ no longer needs to return an `error`.
 - [x] Implement `parseLogfmt` with table-driven tests
 - [x] Make `parseLogfmt` lenient: signature `map[string]string` (no `error`), rules above applied, single store guarded by `key != ""` (16 cases passing)
 - [x] Re-add `LevelUnknown` constant and `Raw string` field to `LogEntry` in `log.go`
-- [x] TDD lenient `ParseEnvelope`: timestamp first, optional `[container]`, `Raw` always set, usable envelope + error when the timestamp is missing
-- [x] TDD `ParseAppLog` lenient (signature `LogEntry`, no `error`, copies `env.Raw`)
-- [ ] **Next:** TDD zero-timestamp fallback in `ParseAppLog`: add rows `"wrong-type timestamp falls back to envelope time"` (`"timestamp":"2025-09-08"`) and bare `42` payload, both expecting `Timestamp: envTime`; watch them fail with 1970, then fix
+- [ ] TDD lenient `ParseEnvelope`: timestamp first, optional `[container]`, `Raw` always set, usable envelope + error when the timestamp is missing
+- [ ] TDD `ParseAppLog` lenient (signature `LogEntry`, no `error`, copies `env.Raw`) — tests written (red); fallback for `*json.SyntaxError` only, see decision above
+- [ ] Then: TDD zero-timestamp fallback in `ParseAppLog`: add rows `"wrong-type timestamp falls back to envelope time"` (`"timestamp":"2025-09-08"`) and bare `42` payload, both expecting `Timestamp: envTime`; watch them fail with 1970, then fix
 - [ ] Optional: try `errors.AsType[*json.SyntaxError](err)` (generic form suggested by the editor) instead of `errors.As`
 - [ ] TDD `ParseRouterLog(env Envelope) LogEntry`: write `TestParseRouterLog` first with the real router sample plus status → level cases (2xx/3xx, 4xx, 5xx, missing, non-numeric), then implement
 - [ ] TDD `ParseLog`: decide the fallback-timestamp source (suggested `receivedAt` parameter), encode it in `TestParseLog` (router line, app line, line without timestamp, garbage line), asserting `entry.Raw == rawLine` in **every** case, then implement

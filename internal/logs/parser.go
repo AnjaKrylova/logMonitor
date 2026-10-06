@@ -12,28 +12,55 @@ type Envelope struct {
 	Timestamp time.Time
 	Container string
 	Payload   string
+	Raw       string
 }
 
 func ParseEnvelope(line string) (Envelope, error) {
-	openBracket := strings.IndexByte(line, '[')
-	closeBracket := strings.IndexByte(line, ']')
-	if openBracket == -1 {
-		return Envelope{}, errors.New("openBracket is not found")
+	fallback := Envelope{Payload: strings.TrimSpace(line), Raw: line}
+
+	date, rest, foundDate := strings.Cut(line, " ")
+	clock, rest, foundClock := strings.Cut(rest, " ")
+	offset, rest, _ := strings.Cut(rest, " ")
+	if !foundDate || !foundClock {
+		return fallback, errors.New("parse envelope: no timestamp found")
 	}
-	if closeBracket == -1 {
-		return Envelope{}, errors.New("closeBracket is not found")
-	}
-	if closeBracket < openBracket {
-		return Envelope{}, errors.New("Brackets are in wrong order")
-	}
-	rawTime := strings.TrimSpace(line[:openBracket])
-	t, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", rawTime)
+	t, err := time.Parse("2006-01-02 15:04:05.999999999 -0700", date+" "+clock+" "+offset)
 	if err != nil {
-		return Envelope{}, fmt.Errorf("parse timestamp: %w", err)
+		return fallback, fmt.Errorf("parse envelope: %w", err)
 	}
-	container := line[openBracket+1 : closeBracket]
-	payload := strings.TrimSpace(line[closeBracket+1:])
-	return Envelope{Timestamp: t, Container: container, Payload: payload}, nil
+
+	if word, after, _ := strings.Cut(rest, " "); isZoneAbbreviation(word) {
+		rest = after
+	}
+
+	var container string
+	if strings.HasPrefix(rest, "[") {
+		if end := strings.IndexByte(rest, ']'); end != -1 {
+			container = rest[1:end]
+			rest = rest[end+1:]
+		}
+	}
+
+	return Envelope{
+		Timestamp: t,
+		Container: container,
+		Payload:   strings.TrimSpace(rest),
+		Raw:       line,
+	}, nil
+}
+
+// isZoneAbbreviation reports whether s looks like a time zone abbreviation
+// such as "UTC" or "CEST".
+func isZoneAbbreviation(s string) bool {
+	if len(s) < 3 || len(s) > 5 {
+		return false
+	}
+	for _, r := range s {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
 }
 
 type AppLogPayload struct {

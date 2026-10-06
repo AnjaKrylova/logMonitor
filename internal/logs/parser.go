@@ -82,17 +82,25 @@ type AppLogPayload struct {
 	Params []any          `json:"params"`
 }
 
-func ParseAppLog(envelope Envelope) (LogEntry, error) {
+// ParseAppLog turns an app container envelope into a LogEntry. It never
+// fails: a payload that is not JSON becomes the Message of an entry with
+// LevelUnknown, and a JSON payload with a wrong-type field keeps every
+// field that did decode.
+func ParseAppLog(envelope Envelope) LogEntry {
 	var parsedAppLog AppLogPayload
 	err := json.Unmarshal([]byte(envelope.Payload), &parsedAppLog)
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("parse app log: %w", err)
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &syntaxErr) {
+		return LogEntry{
+			Timestamp: envelope.Timestamp,
+			Container: envelope.Container,
+			Level:     LevelUnknown,
+			Message:   envelope.Payload,
+			Raw:       envelope.Raw,
+		}
 	}
 
-	level, err := ParseLogLevel(parsedAppLog.Level)
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("parse app log: %w", err)
-	}
+	level, _ := ParseLogLevel(parsedAppLog.Level)
 
 	return LogEntry{
 		Timestamp: time.UnixMilli(parsedAppLog.Timestamp),
@@ -101,7 +109,8 @@ func ParseAppLog(envelope Envelope) (LogEntry, error) {
 		Level:     level,
 		Message:   parsedAppLog.Message,
 		ErrorCode: parsedAppLog.Data.Error.Code,
-	}, nil
+		Raw:       envelope.Raw,
+	}
 }
 
 // parseLogfmt parses space-separated key=value pairs, where values may be

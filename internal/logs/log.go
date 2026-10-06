@@ -9,10 +9,11 @@ import (
 type LogLevel string
 
 const (
-	LevelDebug LogLevel = "DEBUG"
-	LevelInfo  LogLevel = "INFO"
-	LevelWarn  LogLevel = "WARN"
-	LevelError LogLevel = "ERROR"
+	LevelDebug   LogLevel = "DEBUG"
+	LevelInfo    LogLevel = "INFO"
+	LevelWarn    LogLevel = "WARN"
+	LevelError   LogLevel = "ERROR"
+	LevelUnknown LogLevel = "UNKNOWN"
 )
 
 type LogEntry struct {
@@ -37,7 +38,7 @@ func ParseLogLevel(s string) (LogLevel, error) {
 	case "ERROR":
 		return LevelError, nil
 	default:
-		return "", fmt.Errorf("unknown log level: %s", s)
+		return LevelUnknown, fmt.Errorf("unknown log level: %q", s)
 	}
 }
 

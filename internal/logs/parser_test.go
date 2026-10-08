@@ -57,7 +57,6 @@ func TestParseEnvelope(t *testing.T) {
 		{"empty payload", appLinePrefix, Envelope{
 			Timestamp: envTime,
 			Container: "web-1",
-			Payload:   "",
 			Raw:       appLinePrefix,
 		}, false},
 		{"no zone abbreviation", "2025-09-08 13:12:58.867176204 +0200 [web-1] hello", Envelope{
@@ -68,45 +67,43 @@ func TestParseEnvelope(t *testing.T) {
 		}, false},
 		{"no container", timePrefix + " some text", Envelope{
 			Timestamp: envTime,
-			Container: "",
 			Payload:   "some text",
 			Raw:       timePrefix + " some text",
 		}, false},
 		{"no container, payload has brackets", timePrefix + ` {"params":["a"]}`, Envelope{
 			Timestamp: envTime,
-			Container: "",
 			Payload:   `{"params":["a"]}`,
 			Raw:       timePrefix + ` {"params":["a"]}`,
 		}, false},
 		{"timestamp only", timePrefix, Envelope{
 			Timestamp: envTime,
-			Container: "",
-			Payload:   "",
 			Raw:       timePrefix,
 		}, false},
-		// Without a parsable timestamp ParseEnvelope still returns a usable
-		// envelope (zero Timestamp, whole line as Payload, Raw always set)
-		// together with an error, so the caller can decide the timestamp.
+		{"no space after container", timePrefix + " [web-1]hello", Envelope{
+			Timestamp: envTime,
+			Container: "web-1",
+			Payload:   "hello",
+			Raw:       timePrefix + " [web-1]hello",
+		}, false},
+		// Without a parsable timestamp nothing in the line is trusted:
+		// ParseEnvelope returns an envelope with only Raw set, together with
+		// an error. Real Scalingo lines always carry a timestamp, so this is
+		// a safety net, not a path that needs structured parsing.
 		{"empty line", ``, Envelope{}, true},
 		{"bad timestamp", `yesterday [web-1] hello`, Envelope{
-			Payload: `yesterday [web-1] hello`,
-			Raw:     `yesterday [web-1] hello`,
+			Raw: `yesterday [web-1] hello`,
 		}, true},
 		{"date without time", `2025-09-08 [web-1] hello`, Envelope{
-			Payload: `2025-09-08 [web-1] hello`,
-			Raw:     `2025-09-08 [web-1] hello`,
+			Raw: `2025-09-08 [web-1] hello`,
 		}, true},
 		{"no timestamp at all", `[web-1] hello`, Envelope{
-			Payload: `[web-1] hello`,
-			Raw:     `[web-1] hello`,
+			Raw: `[web-1] hello`,
 		}, true},
 		{"JSON only", `{"level":"error","message":"boom"}`, Envelope{
-			Payload: `{"level":"error","message":"boom"}`,
-			Raw:     `{"level":"error","message":"boom"}`,
+			Raw: `{"level":"error","message":"boom"}`,
 		}, true},
-		{"surrounding whitespace is trimmed from payload, kept in raw", "  plain text  ", Envelope{
-			Payload: "plain text",
-			Raw:     "  plain text  ",
+		{"Raw keeps surrounding whitespace", "  plain text  ", Envelope{
+			Raw: "  plain text  ",
 		}, true},
 	}
 
@@ -130,6 +127,64 @@ func TestParseEnvelope(t *testing.T) {
 			}
 			if result.Raw != d.want.Raw {
 				t.Errorf("Raw = %q, want %q", result.Raw, d.want.Raw)
+			}
+		})
+	}
+}
+
+// parseTimestamp reads "date clock offset [ZONE]" from the start of a line.
+// rest is what follows, with the single separating space removed.
+// On error, t is zero and rest is "".
+func TestParseTimestamp(t *testing.T) {
+	data := []struct {
+		name     string
+		input    string
+		wantTime time.Time
+		wantRest string
+		wantErr  bool
+	}{
+		{"full prefix with zone and container", timePrefix + " [web-1] hello", envTime, "[web-1] hello", false},
+		{"no zone abbreviation", "2025-09-08 13:12:58.867176204 +0200 [web-1] hello", envTime, "[web-1] hello", false},
+		{"timestamp with zone only", timePrefix, envTime, "", false},
+		{"timestamp without zone only", "2025-09-08 13:12:58.867176204 +0200", envTime, "", false},
+		{"UTC zone", "2025-09-08 11:12:58.867176204 +0000 UTC hello", envTime, "hello", false},
+		{"fewer fractional digits", "2025-09-08 13:12:58.8 +0200 CEST x",
+			time.Date(2025, 9, 8, 11, 12, 58, 800000000, time.UTC), "x", false},
+		{"no fractional seconds", "2025-09-08 13:12:58 +0200 CEST x",
+			time.Date(2025, 9, 8, 11, 12, 58, 0, time.UTC), "x", false},
+		{"payload brackets are not touched", timePrefix + ` {"params":["a"]}`, envTime, `{"params":["a"]}`, false},
+
+		// The zone word is skipped only when it looks like one: 3-5 uppercase
+		// letters, standing alone.
+		{"text glued to zone is not a zone", timePrefix + "abc", envTime, "CESTabc", false},
+		{"lowercase word is not a zone", "2025-09-08 13:12:58.867176204 +0200 hello world", envTime, "hello world", false},
+		{"long uppercase word is not a zone", "2025-09-08 13:12:58.867176204 +0200 WARNING disk full", envTime, "WARNING disk full", false},
+		// Accepted trade-off: a short uppercase word right after the offset is
+		// indistinguishable from a zone and is skipped. Raw still keeps it.
+		{"short uppercase word is taken as zone", "2025-09-08 13:12:58.867176204 +0200 WARN disk full", envTime, "disk full", false},
+
+		{"empty line", ``, time.Time{}, "", true},
+		{"no timestamp", `[web-1] hello`, time.Time{}, "", true},
+		{"word instead of date", `yesterday [web-1] hello`, time.Time{}, "", true},
+		{"date without clock", `2025-09-08 [web-1] hello`, time.Time{}, "", true},
+		{"missing offset", "2025-09-08 13:12:58.867176204", time.Time{}, "", true},
+		{"zone instead of offset", "2025-09-08 13:12:58.867176204 CEST [web-1] hello", time.Time{}, "", true},
+		{"impossible date", "2025-13-45 13:12:58 +0200 CEST x", time.Time{}, "", true},
+		{"leading whitespace", "  " + timePrefix + " x", time.Time{}, "", true},
+		{"lowercase short word is not a zone", "2025-09-08 13:12:58.867176204 +0200 info disk full", envTime, "info disk full", false},
+	}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			gotTime, gotRest, err := parseTimestamp(d.input)
+			if (err != nil) != d.wantErr {
+				t.Errorf("parseTimestamp(%q) error = %v, wantErr %v", d.input, err, d.wantErr)
+			}
+			if !gotTime.Equal(d.wantTime) {
+				t.Errorf("time = %v, want %v", gotTime, d.wantTime)
+			}
+			if gotRest != d.wantRest {
+				t.Errorf("rest = %q, want %q", gotRest, d.wantRest)
 			}
 		})
 	}

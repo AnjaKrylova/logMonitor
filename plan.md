@@ -559,16 +559,19 @@ type Envelope struct {
 func ParseEnvelope(line string) (Envelope, error)
 ```
 
-- Nothing in the line is required. `Raw` is **always** set, on success and
-  on error.
-- The timestamp is parsed **first** (date, time, offset — the zone
-  abbreviation is skipped only when it is a separate word).
-- `[container]` is optional. Missing → `Container = ""` and everything after
-  the timestamp is `Payload`.
-- No parsable timestamp → returns a usable envelope **and** an error (same
-  pattern as `ParseLogLevel`): zero `Timestamp`, `Container = ""`, the whole
-  trimmed line as `Payload`, and `Raw`. The error tells the caller that it
-  must supply the timestamp itself.
+- `Raw` is **always** set, on success and on error.
+- The timestamp is parsed **first** by the helper
+  `parseTimestamp(line) (time.Time, string, error)`: date, clock, offset; the
+  zone abbreviation is skipped only when it is a separate word of 3–4
+  uppercase letters (`isTimeZone`). Accepted trade-off: a short uppercase
+  word right after the offset (e.g. `WARN`) is taken as a zone.
+- `[container]` is optional. `rest` starting with `[...]` → container;
+  no `[` → `Container = ""` and the whole `rest` is `Payload`. A `[` without
+  `]` is not handled (judged unrealistic for Scalingo lines; `Raw` keeps it).
+- No parsable timestamp → envelope with **only `Raw`** set, plus an error.
+  Nothing in such a line is trusted (no `Payload`, no `Container`). Real
+  Scalingo lines always carry a timestamp, so this is a safety net, not a
+  path that needs structured parsing.
 - The app name is not in the envelope; it comes from the ingestion source
   (with the payload's `app.name` as a fallback).
 
@@ -614,7 +617,7 @@ Decision: a field with the wrong type (e.g. `"app":{"name":123}`) makes
 `json.Unmarshal` return a `*json.UnmarshalTypeError` but still fills every
 other field it could decode — keep that partial entry. Only a
 `*json.SyntaxError` (not JSON at all, truncated, empty) falls back to plain
-text. Use `errors.As` to tell them apart.
+text. Use `errors.AsType[*json.SyntaxError]` to tell them apart.
 
 A wrong-type field is left at its Go zero value. That is harmless for every
 field (`""`, `LevelUnknown`) **except `timestamp`**: `0` becomes
@@ -676,12 +679,13 @@ Coordinates the pipeline:
 3. Otherwise calls `ParseAppLog(env)` (it handles non-JSON payloads itself)
 4. Returns the unified `LogEntry` (`Raw` already set via the envelope)
 
-Decided: no line is dropped. When `ParseEnvelope` returns an error, its
-envelope is still usable (`Raw` + whole line as `Payload`), so `ParseLog`
-continues with stage 2 as usual (`Container = ""` → `ParseAppLog`).
+Decided: no line is dropped. When `ParseEnvelope` returns an error, the line
+is stored unstructured: `Raw` + `LevelUnknown` + a fallback timestamp, with
+no stage-2 parsing (the payload is not trusted). This is accepted because
+real lines always have a timestamp; `Raw` keeps the line for re-parsing.
 
-Remaining decision: where the fallback timestamp comes from when the line has
-none. Suggested: the receive time, passed in by the caller —
+Remaining decision: where the fallback timestamp comes from for such a line.
+Suggested: the receive time, passed in by the caller —
 `ParseLog(rawLine string, receivedAt time.Time) LogEntry` — so tests stay
 deterministic (never call `time.Now()` inside a parser). With that, `ParseLog`
 no longer needs to return an `error`.
@@ -693,10 +697,12 @@ no longer needs to return an `error`.
 - [x] Implement `parseLogfmt` with table-driven tests
 - [x] Make `parseLogfmt` lenient: signature `map[string]string` (no `error`), rules above applied, single store guarded by `key != ""` (16 cases passing)
 - [x] Re-add `LevelUnknown` constant and `Raw string` field to `LogEntry` in `log.go`
-- [ ] TDD lenient `ParseEnvelope`: timestamp first, optional `[container]`, `Raw` always set, usable envelope + error when the timestamp is missing
-- [ ] TDD `ParseAppLog` lenient (signature `LogEntry`, no `error`, copies `env.Raw`) — tests written (red); fallback for `*json.SyntaxError` only, see decision above
-- [ ] Then: TDD zero-timestamp fallback in `ParseAppLog`: add rows `"wrong-type timestamp falls back to envelope time"` (`"timestamp":"2025-09-08"`) and bare `42` payload, both expecting `Timestamp: envTime`; watch them fail with 1970, then fix
-- [ ] Optional: try `errors.AsType[*json.SyntaxError](err)` (generic form suggested by the editor) instead of `errors.As`
+- [x] TDD `parseTimestamp` + `isTimeZone` helpers (21 rows passing)
+- [x] TDD lenient `ParseEnvelope`: timestamp first via `parseTimestamp`, optional `[container]`, `Raw` always set, only-`Raw` envelope + error when the timestamp is missing
+- [x] TDD `ParseAppLog` lenient (signature `LogEntry`, no `error`, copies `env.Raw`); fallback for `*json.SyntaxError` only
+- [ ] **Next:** TDD zero-timestamp fallback in `ParseAppLog`: add rows `"wrong-type timestamp falls back to envelope time"` (`"timestamp":"2025-09-08"`) and bare `42` payload, both expecting `Timestamp: envTime`; watch them fail with 1970, then fix
+- [x] Use `errors.AsType[*json.SyntaxError](err)` (generic form) instead of `errors.As`
+- [ ] Optional: replace `reflect.DeepEqual` in `TestParseAppLog` with per-field checks (`%q` messages, `Timestamp.Equal`, decide `nil` vs empty `Fields`)
 - [ ] TDD `ParseRouterLog(env Envelope) LogEntry`: write `TestParseRouterLog` first with the real router sample plus status → level cases (2xx/3xx, 4xx, 5xx, missing, non-numeric), then implement
 - [ ] TDD `ParseLog`: decide the fallback-timestamp source (suggested `receivedAt` parameter), encode it in `TestParseLog` (router line, app line, line without timestamp, garbage line), asserting `entry.Raw == rawLine` in **every** case, then implement
 

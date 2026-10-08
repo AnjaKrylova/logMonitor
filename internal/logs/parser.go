@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 )
 
 type Envelope struct {
@@ -16,25 +17,27 @@ type Envelope struct {
 }
 
 func ParseEnvelope(line string) (Envelope, error) {
-	openBracket := strings.IndexByte(line, '[')
-	closeBracket := strings.IndexByte(line, ']')
-	if openBracket == -1 {
-		return Envelope{}, errors.New("openBracket is not found")
+	fallbackEnvelope := Envelope{
+		Raw: line,
 	}
-	if closeBracket == -1 {
-		return Envelope{}, errors.New("closeBracket is not found")
-	}
-	if closeBracket < openBracket {
-		return Envelope{}, errors.New("Brackets are in wrong order")
-	}
-	rawTime := strings.TrimSpace(line[:openBracket])
-	t, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", rawTime)
+
+	t, rest, err := parseTimestamp(line)
 	if err != nil {
-		return Envelope{}, fmt.Errorf("parse timestamp: %w", err)
+		return fallbackEnvelope, fmt.Errorf("parse timestamp: %w", err)
 	}
-	container := line[openBracket+1 : closeBracket]
-	payload := strings.TrimSpace(line[closeBracket+1:])
-	return Envelope{Timestamp: t, Container: container, Payload: payload}, nil
+
+	var container string
+	var payload string
+	if strings.HasPrefix(rest, "[") {
+		closeBracketIndex := strings.Index(rest, "]")
+		if closeBracketIndex != -1 {
+			container = rest[1:closeBracketIndex]
+			payload = strings.TrimSpace(rest[closeBracketIndex+1:])
+		}
+	} else {
+		payload = strings.TrimSpace(rest)
+	}
+	return Envelope{Timestamp: t, Container: container, Payload: payload, Raw: line}, nil
 }
 
 type AppLogPayload struct {
@@ -59,10 +62,13 @@ type AppLogPayload struct {
 func ParseAppLog(envelope Envelope) LogEntry {
 	var parsedAppLog AppLogPayload
 	err := json.Unmarshal([]byte(envelope.Payload), &parsedAppLog)
-	if err != nil {
+	_, ok := errors.AsType[*json.SyntaxError](err)
+	if ok {
 		return LogEntry{
+			Timestamp: envelope.Timestamp,
 			Container: envelope.Container,
 			Level:     LevelUnknown,
+			Message:   envelope.Payload,
 			Raw:       envelope.Raw,
 		}
 	}
@@ -106,4 +112,32 @@ func parseLogfmt(s string) map[string]string {
 		}
 	}
 	return logMap
+}
+
+func parseTimestamp(line string) (time.Time, string, error) {
+	date, rest, _ := strings.Cut(line, " ")
+	clock, rest, _ := strings.Cut(rest, " ")
+	offset, rest, _ := strings.Cut(rest, " ")
+	word, after, _ := strings.Cut(rest, " ")
+	if isTimeZone(word) {
+		rest = after
+	}
+	rawTime := strings.Join([]string{date, clock, offset}, " ")
+	parsedTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700", rawTime)
+	if err != nil {
+		return time.Time{}, "", fmt.Errorf("parse timestamp: %w", err)
+	}
+	return parsedTime, rest, nil
+}
+
+func isTimeZone(s string) bool {
+	if !(len(s) >= 3 && len(s) <= 5) {
+		return false
+	}
+	for _, r := range s {
+		if !unicode.IsUpper(r) {
+			return false
+		}
+	}
+	return true
 }

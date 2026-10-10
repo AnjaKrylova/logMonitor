@@ -1,0 +1,70 @@
+# logMonitor — TODO
+
+Design context and decisions: [overview.md](overview.md).
+Every step is TDD: red → green → refactor (see overview).
+
+## Status
+
+**Current:** Exercise 3 — Real-World Log Parsing.
+**Next step:** TDD `ParseRouterLog` (see below).
+
+---
+
+## Exercise 1 — Tiny Go service ✅
+
+- [x] HTTP server with timeouts; `GET /health`, `GET /version` returning JSON
+- [x] `Content-Type: application/json`; handle startup errors
+
+## Exercise 2 — Log entry & typed log levels ✅
+
+- [x] `LogLevel` type + constants, `LogEntry` struct, `IsError()`
+- [x] `ParseLogLevel(s) (LogLevel, error)` — `LevelUnknown` + error for unknown input
+- [x] Table tests in `log_test.go` (case, whitespace, empty, invalid)
+
+## Exercise 3 — Real-world log parsing
+
+Done:
+
+- [x] `parseLogfmt` — lenient, never fails (16 rows)
+- [x] `parseTimestamp` + `isTimeZone` (21 rows)
+- [x] `ParseEnvelope` — timestamp first, optional `[container]`, `Raw` always set
+- [x] `ParseAppLog` — never fails; plain-text fallback only on `*json.SyntaxError`; payload timestamp `== 0` → envelope time
+- [x] `TestParseAppLog` refactored: rows take only a payload
+
+Next:
+
+- [ ] **TDD `ParseRouterLog(env Envelope) LogEntry`** — write `TestParseRouterLog` first:
+  - real router sample (see overview)
+  - level from `status`: `>= 500` → Error, `>= 400` → Warn, otherwise Info; missing or non-numeric → Unknown
+  - logfmt pairs go into `Fields`; keep the raw `status` string even when the level falls back
+  - copies `env.Timestamp`, `env.Container`, `env.Raw`
+- [ ] **TDD `ParseLog`** — first decide the fallback timestamp (suggested: `ParseLog(rawLine string, receivedAt time.Time) LogEntry`); rows: router line, app line, line without timestamp, garbage; assert `entry.Raw == rawLine` in every row
+
+Optional:
+
+- [ ] Guard row in `TestParseAppLog` with two broken fields (`{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}` → envelope time)
+- [ ] Per-field checks instead of `reflect.DeepEqual` in `TestParseAppLog` (`%q`, `Timestamp.Equal`, decide `nil` vs empty `Fields`)
+
+---
+
+## Later exercises
+
+Detail is added when an exercise starts.
+
+- [ ] **4. Repository** — `LogRepository` interface (`Save`, `Find`) + `MemoryLogRepository`; filter by from/to/app. *Interfaces at meaningful boundaries, slices.*
+- [ ] **5. Goroutines & channels** — fake producer → channel → consumer → repository; 1,000 logs. *`go`, `chan`, `close`, `range` over a channel.*
+- [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. *`sync.WaitGroup`, backpressure.*
+- [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. *`context.WithTimeout`, `defer cancel()`.*
+- [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. *JSON decoding, validation, handler design.*
+- [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). *Buffered channels, design trade-offs.*
+- [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. *Interfaces, generators.*
+- [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. *Concurrent producers, lifecycle.*
+- [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. *Query parsing separate from storage.*
+- [ ] **13. Aggregation** — hourly buckets, including zero-count hours. *Time bucketing, maps.*
+- [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`.
+- [ ] **15. Redis** — `RedisLogRepository` behind the same interface. *External dependencies, integration tests.*
+- [ ] **16. Scalingo integration** — `ScalingoLogSource`; investigate drains vs streaming first. App name comes from the source.
+- [ ] **17. Retry & backoff** — exponential backoff with a max delay. *`time.NewTimer`, `select` with `ctx.Done()`.*
+- [ ] **18. Graceful shutdown** — SIGTERM → stop intake → drain queue → close storage. *`signal.NotifyContext`.*
+- [ ] **19. Time handling** — define "today" (Europe/Copenhagen), store UTC; test midnight, DST, month/year boundaries.
+- [ ] **20. Testing review** — fill gaps; `httptest`, `-race`, coverage, benchmarks, integration tests.

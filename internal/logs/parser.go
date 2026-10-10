@@ -73,10 +73,15 @@ func ParseAppLog(envelope Envelope) LogEntry {
 		}
 	}
 
+	timestamp := envelope.Timestamp
+
+	if parsedAppLog.Timestamp != 0 {
+		timestamp = time.UnixMilli(parsedAppLog.Timestamp)
+	}
 	level, _ := ParseLogLevel(parsedAppLog.Level)
 
 	return LogEntry{
-		Timestamp: time.UnixMilli(parsedAppLog.Timestamp),
+		Timestamp: timestamp,
 		App:       parsedAppLog.App.Name,
 		Container: envelope.Container,
 		Level:     level,

@@ -279,111 +279,72 @@ func appEnvelope(payload string) Envelope {
 func TestParseAppLog(t *testing.T) {
 	payloadTime := time.UnixMilli(1757329978852)
 
+	// Each row gives only the payload; the loop wraps it with appEnvelope.
+	// Container and Raw are passed through from the envelope unchanged in
+	// every case, so the loop fills them into want instead of each row.
 	data := []struct {
-		name  string
-		input Envelope
-		want  LogEntry
+		name    string
+		payload string
+		want    LogEntry
 	}{
-		{"real error log with code", appEnvelope(appLogErrorPayload), LogEntry{
+		// The one real sample: every field the parser maps is present.
+		{"real error log", appLogErrorPayload, LogEntry{
 			Timestamp: payloadTime,
 			App:       "demo-app",
-			Container: "web-1",
 			Level:     LevelError,
 			Message:   "Error processing request",
 			ErrorCode: "FETCH_CLIENT_ERROR_REQUEST_TIMEOUT",
-			Raw:       appLinePrefix + appLogErrorPayload,
 		}},
-		{"info log without error data",
-			appEnvelope(`{"app":{"name":"demo-app"},"level":"info","message":"Server started","timestamp":1757329978852}`),
-			LogEntry{
-				Timestamp: payloadTime,
-				App:       "demo-app",
-				Container: "web-1",
-				Level:     LevelInfo,
-				Message:   "Server started",
-				Raw:       appLinePrefix + `{"app":{"name":"demo-app"},"level":"info","message":"Server started","timestamp":1757329978852}`,
-			}},
+
+		// JSON payloads: each one carries only the fields its row is about.
+		{"info log without app or error data",
+			`{"level":"info","message":"Server started","timestamp":1757329978852}`,
+			LogEntry{Timestamp: payloadTime, Level: LevelInfo, Message: "Server started"}},
 		{"unknown level falls back to LevelUnknown",
-			appEnvelope(`{"app":{"name":"demo-app"},"level":"fatal","message":"Crash","timestamp":1757329978852}`),
-			LogEntry{
-				Timestamp: payloadTime,
-				App:       "demo-app",
-				Container: "web-1",
-				Level:     LevelUnknown,
-				Message:   "Crash",
-				Raw:       appLinePrefix + `{"app":{"name":"demo-app"},"level":"fatal","message":"Crash","timestamp":1757329978852}`,
-			}},
+			`{"level":"fatal","timestamp":1757329978852}`,
+			LogEntry{Timestamp: payloadTime, Level: LevelUnknown}},
 		{"missing level falls back to LevelUnknown",
-			appEnvelope(`{"app":{"name":"demo-app"},"message":"No level","timestamp":1757329978852}`),
-			LogEntry{
-				Timestamp: payloadTime,
-				App:       "demo-app",
-				Container: "web-1",
-				Level:     LevelUnknown,
-				Message:   "No level",
-				Raw:       appLinePrefix + `{"app":{"name":"demo-app"},"message":"No level","timestamp":1757329978852}`,
-			}},
-		{"missing app and data leave zero values",
-			appEnvelope(`{"level":"info","message":"Bare","timestamp":1757329978852}`),
-			LogEntry{
-				Timestamp: payloadTime,
-				Container: "web-1",
-				Level:     LevelInfo,
-				Message:   "Bare",
-				Raw:       appLinePrefix + `{"level":"info","message":"Bare","timestamp":1757329978852}`,
-			}},
+			`{"message":"No level","timestamp":1757329978852}`,
+			LogEntry{Timestamp: payloadTime, Level: LevelUnknown, Message: "No level"}},
 		{"null data leaves zero error code",
-			appEnvelope(`{"app":{"name":"demo-app"},"level":"error","message":"No code","data":null,"timestamp":1757329978852}`),
-			LogEntry{
-				Timestamp: payloadTime,
-				App:       "demo-app",
-				Container: "web-1",
-				Level:     LevelError,
-				Message:   "No code",
-				Raw:       appLinePrefix + `{"app":{"name":"demo-app"},"level":"error","message":"No code","data":null,"timestamp":1757329978852}`,
-			}},
+			`{"level":"error","data":null,"timestamp":1757329978852}`,
+			LogEntry{Timestamp: payloadTime, Level: LevelError}},
 		// Decision: a wrong-type field is still JSON, so keep every field that
 		// decoded instead of throwing the whole entry away.
 		{"wrong-type field keeps the fields that decoded",
-			appEnvelope(`{"app":{"name":123},"level":"error","message":"Still useful","timestamp":1757329978852}`),
-			LogEntry{
-				Timestamp: payloadTime,
-				Container: "web-1",
-				Level:     LevelError,
-				Message:   "Still useful",
-				Raw:       appLinePrefix + `{"app":{"name":123},"level":"error","message":"Still useful","timestamp":1757329978852}`,
-			}},
+			`{"app":{"name":123},"level":"error","message":"Still useful","timestamp":1757329978852}`,
+			LogEntry{Timestamp: payloadTime, Level: LevelError, Message: "Still useful"}},
+		{"wrong-type timestamp falls back to envelope time",
+			`{"level":"warn","timestamp":"2025-09-08"}`,
+			LogEntry{Timestamp: envTime, Level: LevelWarn}},
+		{"payload bare JSON number",
+			`42`,
+			LogEntry{Timestamp: envTime, Level: LevelUnknown}},
+
+		// Not JSON: the payload becomes the message, the time comes from the envelope.
 		{"plain text payload becomes the message",
-			appEnvelope("npm WARN deprecated foo@1.0.0"),
-			LogEntry{
-				Timestamp: envTime,
-				Container: "web-1",
-				Level:     LevelUnknown,
-				Message:   "npm WARN deprecated foo@1.0.0",
-				Raw:       appLinePrefix + "npm WARN deprecated foo@1.0.0",
-			}},
+			"npm WARN deprecated foo@1.0.0",
+			LogEntry{Timestamp: envTime, Level: LevelUnknown, Message: "npm WARN deprecated foo@1.0.0"}},
 		{"truncated JSON is treated as plain text",
-			appEnvelope(`{"app":{"name":"demo-app"},"level":"err`),
-			LogEntry{
-				Timestamp: envTime,
-				Container: "web-1",
-				Level:     LevelUnknown,
-				Message:   `{"app":{"name":"demo-app"},"level":"err`,
-				Raw:       appLinePrefix + `{"app":{"name":"demo-app"},"level":"err`,
-			}},
-		{"empty payload", appEnvelope(""), LogEntry{
-			Timestamp: envTime,
-			Container: "web-1",
-			Level:     LevelUnknown,
-			Raw:       appLinePrefix,
-		}},
+			`{"level":"err`,
+			LogEntry{Timestamp: envTime, Level: LevelUnknown, Message: `{"level":"err`}},
+		{"empty payload",
+			"",
+			LogEntry{Timestamp: envTime, Level: LevelUnknown}}, {
+			"2 broken fields", `{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}`,
+			LogEntry{Timestamp: envTime, Level: LevelWarn}},
 	}
 
 	for _, d := range data {
 		t.Run(d.name, func(t *testing.T) {
-			result := ParseAppLog(d.input)
-			if !reflect.DeepEqual(result, d.want) {
-				t.Errorf("ParseAppLog(%q)\n got: %+v\nwant: %+v", d.input.Payload, result, d.want)
+			input := appEnvelope(d.payload)
+			want := d.want
+			want.Container = input.Container
+			want.Raw = input.Raw
+
+			result := ParseAppLog(input)
+			if !reflect.DeepEqual(result, want) {
+				t.Errorf("ParseAppLog(%q)\n got: %+v\nwant: %+v", d.payload, result, want)
 			}
 		})
 	}

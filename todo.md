@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 3 — Real-World Log Parsing.
-**Next step:** TDD `ParseRouterLog` (see below).
+**Next step:** TDD `ParseLog`, the dispatcher (see below).
 
 ---
 
@@ -30,15 +30,13 @@ Done:
 - [x] `ParseEnvelope` — timestamp first, optional `[container]`, `Raw` always set
 - [x] `ParseAppLog` — never fails; plain-text fallback only on `*json.SyntaxError`; payload timestamp `== 0` → envelope time
 - [x] `TestParseAppLog` refactored: rows take only a payload
+- [x] `ParseRouterLog` — logfmt pairs into `Fields`; level from `status` via `strconv.Atoi` (≥500 Error, ≥400 Warn, else Info; missing or non-numeric → Unknown) (7 rows)
+- [x] `LogEntry.Fields` changed to `map[string]string`
 
 Next:
 
-- [ ] **TDD `ParseRouterLog(env Envelope) LogEntry`** — write `TestParseRouterLog` first:
-  - real router sample (see overview)
-  - level from `status`: `>= 500` → Error, `>= 400` → Warn, otherwise Info; missing or non-numeric → Unknown
-  - logfmt pairs go into `Fields`; keep the raw `status` string even when the level falls back
-  - copies `env.Timestamp`, `env.Container`, `env.Raw`
 - [ ] **TDD `ParseLog`** — first decide the fallback timestamp (suggested: `ParseLog(rawLine string, receivedAt time.Time) LogEntry`); rows: router line, app line, line without timestamp, garbage; assert `entry.Raw == rawLine` in every row
+- [ ] **TDD `ParseAppLog` → `Fields`** — `data.error.message`, `data.error.stack`, `origin`, `params` are decoded but dropped; put them into `Fields`, flattening nested values into string keys (`"origin.file"`, `"origin.line": "158"`; requirement: keep custom structured fields). Not urgent: `Raw` keeps them, nothing queries `Fields` before Exercise 12
 
 Optional:
 

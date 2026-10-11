@@ -58,7 +58,8 @@ Principles:
 ## Domain model
 
 `LogEntry` in `internal/logs/log.go` is the source of truth. In short:
-timestamp, app, container, level, message, error code, custom `Fields`, and
+timestamp, app, container, level, message, error code, custom `Fields`
+(string keys and values), and
 `Raw` — the original line, set on **every** entry.
 
 ## Real log lines
@@ -125,6 +126,15 @@ Each entry: what was decided — why — the alternative not chosen.
   trade-off:* a bad quote can swallow following pairs; `Raw` keeps the line.
 - **App name comes from the ingestion source**, with the payload's
   `app.name` as a fallback. — The envelope does not contain the app.
+- **`LogEntry.Fields` is `map[string]string`.** — Typed and simple; logfmt
+  values are strings anyway; no `any` traps (`200` vs `"200"` look identical
+  when printed). *Consequence:* nested app values (`origin`, `params`,
+  `stack`) must be flattened into string keys (`"origin.file"`,
+  `"origin.line": "158"`), and numbers lose their type — numeric filters
+  must convert back. *Not chosen:* `map[string]any`.
+- **Router entries leave `Message` and `App` empty**; everything is in
+  `Fields`. — Simplest; `host` is a hostname, not the app. *Possible later:*
+  a summary message such as `"GET /password 200"` built from `Fields`.
 
 Possible later: record the malformed field in `Fields["parse_error"]` to
 monitor apps that send broken logs.

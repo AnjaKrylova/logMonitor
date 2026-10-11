@@ -12,6 +12,7 @@ const timePrefix = "2025-09-08 13:12:58.867176204 +0200 CEST"
 
 // Prefix of a real Scalingo line for container web-1.
 const appLinePrefix = timePrefix + " [web-1] "
+const routerLinePrefix = timePrefix + " [router] "
 
 // 2025-09-08 13:12:58.867176204 +0200 CEST as an instant.
 var envTime = time.Date(2025, 9, 8, 11, 12, 58, 867176204, time.UTC)
@@ -276,8 +277,9 @@ func appEnvelope(payload string) Envelope {
 	}
 }
 
+var payloadTime = time.UnixMilli(1757329978852)
+
 func TestParseAppLog(t *testing.T) {
-	payloadTime := time.UnixMilli(1757329978852)
 
 	// Each row gives only the payload; the loop wraps it with appEnvelope.
 	// Container and Raw are passed through from the envelope unchanged in
@@ -345,6 +347,94 @@ func TestParseAppLog(t *testing.T) {
 			result := ParseAppLog(input)
 			if !reflect.DeepEqual(result, want) {
 				t.Errorf("ParseAppLog(%q)\n got: %+v\nwant: %+v", d.payload, result, want)
+			}
+		})
+	}
+}
+
+// routerEnvelope builds the Envelope that ParseEnvelope would return for an
+// router line carrying the given payload.
+func routerEnvelope(payload string) Envelope {
+	return Envelope{
+		Timestamp: envTime,
+		Container: "router",
+		Payload:   payload,
+		Raw:       routerLinePrefix + payload,
+	}
+}
+
+func TestParseRouterLog(t *testing.T) {
+
+	data := []struct {
+		name    string
+		payload string
+		want    LogEntry
+	}{
+		{"status 200 is info", `method=GET path="/password" status=200 duration=0.030s`,
+			LogEntry{Timestamp: envTime, Level: LevelInfo, Fields: map[string]string{
+				"method":   "GET",
+				"path":     "/password",
+				"status":   "200",
+				"duration": "0.030s",
+			}},
+		},
+		{"status 404 is warn", `status=404`,
+			LogEntry{Timestamp: envTime, Level: LevelWarn, Fields: map[string]string{
+				"status": "404",
+			}},
+		},
+		{"status 500 is error", `status=500`,
+			LogEntry{
+				Timestamp: envTime,
+				Level:     LevelError,
+				Fields: map[string]string{
+					"status": "500",
+				}},
+		},
+		{"status 302 is info", `status=302`,
+			LogEntry{
+				Timestamp: envTime,
+				Level:     LevelInfo,
+				Fields: map[string]string{
+					"status": "302",
+				}},
+		},
+		{"status abc is unknown", `status=abc`,
+			LogEntry{
+				Timestamp: envTime,
+				Level:     LevelUnknown,
+				Fields: map[string]string{
+					"status": "abc",
+				}},
+		},
+		{"status 5abc is unknown", `status=5abc`,
+			LogEntry{
+				Timestamp: envTime,
+				Level:     LevelUnknown,
+				Fields:    map[string]string{"status": "5abc"}},
+		},
+		{"no status", `method=GET path="/password" duration=0.030s`,
+			LogEntry{
+				Timestamp: envTime,
+				Level:     LevelUnknown,
+				Fields: map[string]string{
+					"method":   "GET",
+					"path":     "/password",
+					"duration": "0.030s",
+				},
+			}},
+	}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			input := routerEnvelope(d.payload)
+			want := d.want
+			want.Container = input.Container
+			want.Raw = input.Raw
+
+			result := ParseRouterLog(input)
+			if !reflect.DeepEqual(result, want) {
+				t.Errorf("ParseRouterLog(%q)\n got: %+v\nwant: %+v", d.payload, result, want)
 			}
 		})
 	}

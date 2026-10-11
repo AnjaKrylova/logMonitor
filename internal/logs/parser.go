@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -107,7 +108,7 @@ func parseLogfmt(s string) map[string]string {
 		var value string
 		if strings.HasPrefix(rest, "\"") {
 			rest = rest[1:]
-			// A missing closing quote makes the value run to the end of the line.
+			// A missing closing quote makes the value run sto the end of the line.
 			value, rest, _ = strings.Cut(rest, "\"")
 		} else {
 			value, rest, _ = strings.Cut(rest, " ")
@@ -145,4 +146,28 @@ func isTimeZone(s string) bool {
 		}
 	}
 	return true
+}
+
+func ParseRouterLog(envelope Envelope) LogEntry {
+	fields := parseLogfmt(envelope.Payload)
+	level := LevelUnknown
+	value := fields["status"]
+	code, err := strconv.Atoi(value)
+	if err == nil {
+		switch {
+		case code >= 500:
+			level = LevelError
+		case code >= 400:
+			level = LevelWarn
+		default:
+			level = LevelInfo
+		}
+	}
+	return LogEntry{
+		Timestamp: envelope.Timestamp,
+		Container: envelope.Container,
+		Level:     level,
+		Fields:    fields,
+		Raw:       envelope.Raw,
+	}
 }

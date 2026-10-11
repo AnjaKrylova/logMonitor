@@ -24,7 +24,7 @@ type LogEntry struct {
 	Level     LogLevel
 	Message   string
 	ErrorCode string // e.g. "FETCH_CLIENT_ERROR_REQUEST_TIMEOUT"
-	Fields    map[string]any
+	Fields    map[string]string
 	Raw       string
 }
 

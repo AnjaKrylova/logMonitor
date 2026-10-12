@@ -35,7 +35,7 @@ Done:
 
 Next:
 
-- [ ] **TDD `ParseLog`** — first decide the fallback timestamp (suggested: `ParseLog(rawLine string, receivedAt time.Time) LogEntry`); rows: router line, app line, line without timestamp, garbage; assert `entry.Raw == rawLine` in every row
+- [ ] **TDD `ParseLog(rawLine string, receivedAt time.Time) LogEntry`** — no line without timestamp is dropped: `Raw`, `LevelUnknown`, `Timestamp = receivedAt`; rows: router line, app line, line without timestamp, garbage; assert `entry.Raw == rawLine` in every row
 - [ ] **TDD `ParseAppLog` → `Fields`** — `data.error.message`, `data.error.stack`, `origin`, `params` are decoded but dropped; put them into `Fields`, flattening nested values into string keys (`"origin.file"`, `"origin.line": "158"`; requirement: keep custom structured fields). Not urgent: `Raw` keeps them, nothing queries `Fields` before Exercise 12
 
 Optional:

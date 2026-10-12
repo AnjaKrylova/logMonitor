@@ -107,8 +107,11 @@ Each entry: what was decided — why — the alternative not chosen.
 - **No timestamp → envelope with only `Raw`, plus an error.** Nothing in such
   a line is trusted. — Real Scalingo lines always have a timestamp.
 - **No line is dropped.** A line without a timestamp is stored unstructured:
-  `Raw`, `LevelUnknown`, fallback timestamp. *Open:* fallback time source —
-  suggested `receivedAt` passed by the caller, never `time.Now()` in a parser.
+  `Raw`, `LevelUnknown`, fallback timestamp.
+- **The fallback timestamp is the receive time, passed by the caller:**
+  `ParseLog(rawLine string, receivedAt time.Time) LogEntry`, no `error`. —
+  Deterministic tests; re-parsing old lines from `Raw` keeps their original
+  time. *Not chosen:* `time.Now()` inside the parser; leaving it at zero.
 - **`ParseLogLevel` returns `LevelUnknown` together with an error.** — Callers
   get a usable value and still learn what was wrong.
 - **`LevelUnknown`** for missing or unrecognised levels. — Keeps malformed

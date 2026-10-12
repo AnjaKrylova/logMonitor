@@ -18,7 +18,7 @@ const appLogErrorPayload = `{"app":{"name":"demo-app","version":"3.4.2"},"data":
 // app line on web-1 carrying the given payload.
 func appEnvelope(payload string) Envelope {
 	return Envelope{
-		Timestamp: envTime,
+		Timestamp: timePrefixParsed,
 		Container: "web-1",
 		Payload:   payload,
 		Raw:       appLinePrefix + payload,
@@ -63,23 +63,23 @@ func TestParseAppLog(t *testing.T) {
 			LogEntry{Timestamp: payloadTime, Level: LevelError, Message: "Still useful"}},
 		{"wrong-type timestamp falls back to envelope time",
 			`{"level":"warn","timestamp":"2025-09-08"}`,
-			LogEntry{Timestamp: envTime, Level: LevelWarn}},
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelWarn}},
 		{"payload bare JSON number",
 			`42`,
-			LogEntry{Timestamp: envTime, Level: LevelUnknown}},
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelUnknown}},
 
 		// Not JSON: the payload becomes the message, the time comes from the envelope.
 		{"plain text payload becomes the message",
 			"npm WARN deprecated foo@1.0.0",
-			LogEntry{Timestamp: envTime, Level: LevelUnknown, Message: "npm WARN deprecated foo@1.0.0"}},
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelUnknown, Message: "npm WARN deprecated foo@1.0.0"}},
 		{"truncated JSON is treated as plain text",
 			`{"level":"err`,
-			LogEntry{Timestamp: envTime, Level: LevelUnknown, Message: `{"level":"err`}},
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelUnknown, Message: `{"level":"err`}},
 		{"empty payload",
 			"",
-			LogEntry{Timestamp: envTime, Level: LevelUnknown}}, {
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelUnknown}}, {
 			"2 broken fields", `{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}`,
-			LogEntry{Timestamp: envTime, Level: LevelWarn}},
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelWarn}},
 	}
 
 	for _, d := range data {

@@ -9,7 +9,7 @@ import (
 const timePrefix = "2025-09-08 13:12:58.867176204 +0200 CEST"
 
 // 2025-09-08 13:12:58.867176204 +0200 CEST as an instant.
-var envTime = time.Date(2025, 9, 8, 11, 12, 58, 867176204, time.UTC)
+var timePrefixParsed = time.Date(2025, 9, 8, 11, 12, 58, 867176204, time.UTC)
 
 func TestParseEnvelope(t *testing.T) {
 	routerLine := `2026-06-24 15:02:19.446989072 +0200 CEST [router] method=GET path="/password" status=200 duration=0.030s`
@@ -23,7 +23,7 @@ func TestParseEnvelope(t *testing.T) {
 		wantErr bool
 	}{
 		{"app line", appLine, Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Container: "web-1",
 			Payload:   appLogErrorPayload,
 			Raw:       appLine,
@@ -35,44 +35,44 @@ func TestParseEnvelope(t *testing.T) {
 			Raw:       routerLine,
 		}, false},
 		{"brackets inside payload belong to payload", payloadWithBrackets, Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Container: "web-1",
 			Payload:   `{"params":["a","b"],"message":"see [docs]"}`,
 			Raw:       payloadWithBrackets,
 		}, false},
 		{"payload whitespace is trimmed", appLinePrefix + "  hello  ", Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Container: "web-1",
 			Payload:   "hello",
 			Raw:       appLinePrefix + "  hello  ",
 		}, false},
 		{"empty payload", appLinePrefix, Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Container: "web-1",
 			Raw:       appLinePrefix,
 		}, false},
 		{"no zone abbreviation", "2025-09-08 13:12:58.867176204 +0200 [web-1] hello", Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Container: "web-1",
 			Payload:   "hello",
 			Raw:       "2025-09-08 13:12:58.867176204 +0200 [web-1] hello",
 		}, false},
 		{"no container", timePrefix + " some text", Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Payload:   "some text",
 			Raw:       timePrefix + " some text",
 		}, false},
 		{"no container, payload has brackets", timePrefix + ` {"params":["a"]}`, Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Payload:   `{"params":["a"]}`,
 			Raw:       timePrefix + ` {"params":["a"]}`,
 		}, false},
 		{"timestamp only", timePrefix, Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Raw:       timePrefix,
 		}, false},
 		{"no space after container", timePrefix + " [web-1]hello", Envelope{
-			Timestamp: envTime,
+			Timestamp: timePrefixParsed,
 			Container: "web-1",
 			Payload:   "hello",
 			Raw:       timePrefix + " [web-1]hello",
@@ -135,25 +135,25 @@ func TestParseTimestamp(t *testing.T) {
 		wantRest string
 		wantErr  bool
 	}{
-		{"full prefix with zone and container", timePrefix + " [web-1] hello", envTime, "[web-1] hello", false},
-		{"no zone abbreviation", "2025-09-08 13:12:58.867176204 +0200 [web-1] hello", envTime, "[web-1] hello", false},
-		{"timestamp with zone only", timePrefix, envTime, "", false},
-		{"timestamp without zone only", "2025-09-08 13:12:58.867176204 +0200", envTime, "", false},
-		{"UTC zone", "2025-09-08 11:12:58.867176204 +0000 UTC hello", envTime, "hello", false},
+		{"full prefix with zone and container", timePrefix + " [web-1] hello", timePrefixParsed, "[web-1] hello", false},
+		{"no zone abbreviation", "2025-09-08 13:12:58.867176204 +0200 [web-1] hello", timePrefixParsed, "[web-1] hello", false},
+		{"timestamp with zone only", timePrefix, timePrefixParsed, "", false},
+		{"timestamp without zone only", "2025-09-08 13:12:58.867176204 +0200", timePrefixParsed, "", false},
+		{"UTC zone", "2025-09-08 11:12:58.867176204 +0000 UTC hello", timePrefixParsed, "hello", false},
 		{"fewer fractional digits", "2025-09-08 13:12:58.8 +0200 CEST x",
 			time.Date(2025, 9, 8, 11, 12, 58, 800000000, time.UTC), "x", false},
 		{"no fractional seconds", "2025-09-08 13:12:58 +0200 CEST x",
 			time.Date(2025, 9, 8, 11, 12, 58, 0, time.UTC), "x", false},
-		{"payload brackets are not touched", timePrefix + ` {"params":["a"]}`, envTime, `{"params":["a"]}`, false},
+		{"payload brackets are not touched", timePrefix + ` {"params":["a"]}`, timePrefixParsed, `{"params":["a"]}`, false},
 
 		// The zone word is skipped only when it looks like one: 3-5 uppercase
 		// letters, standing alone.
-		{"text glued to zone is not a zone", timePrefix + "abc", envTime, "CESTabc", false},
-		{"lowercase word is not a zone", "2025-09-08 13:12:58.867176204 +0200 hello world", envTime, "hello world", false},
-		{"long uppercase word is not a zone", "2025-09-08 13:12:58.867176204 +0200 WARNING disk full", envTime, "WARNING disk full", false},
+		{"text glued to zone is not a zone", timePrefix + "abc", timePrefixParsed, "CESTabc", false},
+		{"lowercase word is not a zone", "2025-09-08 13:12:58.867176204 +0200 hello world", timePrefixParsed, "hello world", false},
+		{"long uppercase word is not a zone", "2025-09-08 13:12:58.867176204 +0200 WARNING disk full", timePrefixParsed, "WARNING disk full", false},
 		// Accepted trade-off: a short uppercase word right after the offset is
 		// indistinguishable from a zone and is skipped. Raw still keeps it.
-		{"short uppercase word is taken as zone", "2025-09-08 13:12:58.867176204 +0200 WARN disk full", envTime, "disk full", false},
+		{"short uppercase word is taken as zone", "2025-09-08 13:12:58.867176204 +0200 WARN disk full", timePrefixParsed, "disk full", false},
 
 		{"empty line", ``, time.Time{}, "", true},
 		{"no timestamp", `[web-1] hello`, time.Time{}, "", true},
@@ -163,7 +163,7 @@ func TestParseTimestamp(t *testing.T) {
 		{"zone instead of offset", "2025-09-08 13:12:58.867176204 CEST [web-1] hello", time.Time{}, "", true},
 		{"impossible date", "2025-13-45 13:12:58 +0200 CEST x", time.Time{}, "", true},
 		{"leading whitespace", "  " + timePrefix + " x", time.Time{}, "", true},
-		{"lowercase short word is not a zone", "2025-09-08 13:12:58.867176204 +0200 info disk full", envTime, "info disk full", false},
+		{"lowercase short word is not a zone", "2025-09-08 13:12:58.867176204 +0200 info disk full", timePrefixParsed, "info disk full", false},
 	}
 
 	for _, d := range data {

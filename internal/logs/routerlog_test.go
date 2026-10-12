@@ -12,7 +12,7 @@ const routerLinePrefix = timePrefix + " [router] "
 // router line carrying the given payload.
 func routerEnvelope(payload string) Envelope {
 	return Envelope{
-		Timestamp: envTime,
+		Timestamp: timePrefixParsed,
 		Container: "router",
 		Payload:   payload,
 		Raw:       routerLinePrefix + payload,
@@ -26,7 +26,7 @@ func TestParseRouterLog(t *testing.T) {
 		want    LogEntry
 	}{
 		{"status 200 is info", `method=GET path="/password" status=200 duration=0.030s`,
-			LogEntry{Timestamp: envTime, Level: LevelInfo, Fields: map[string]string{
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelInfo, Fields: map[string]string{
 				"method":   "GET",
 				"path":     "/password",
 				"status":   "200",
@@ -34,13 +34,13 @@ func TestParseRouterLog(t *testing.T) {
 			}},
 		},
 		{"status 404 is warn", `status=404`,
-			LogEntry{Timestamp: envTime, Level: LevelWarn, Fields: map[string]string{
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelWarn, Fields: map[string]string{
 				"status": "404",
 			}},
 		},
 		{"status 500 is error", `status=500`,
 			LogEntry{
-				Timestamp: envTime,
+				Timestamp: timePrefixParsed,
 				Level:     LevelError,
 				Fields: map[string]string{
 					"status": "500",
@@ -48,7 +48,7 @@ func TestParseRouterLog(t *testing.T) {
 		},
 		{"status 302 is info", `status=302`,
 			LogEntry{
-				Timestamp: envTime,
+				Timestamp: timePrefixParsed,
 				Level:     LevelInfo,
 				Fields: map[string]string{
 					"status": "302",
@@ -56,7 +56,7 @@ func TestParseRouterLog(t *testing.T) {
 		},
 		{"status abc is unknown", `status=abc`,
 			LogEntry{
-				Timestamp: envTime,
+				Timestamp: timePrefixParsed,
 				Level:     LevelUnknown,
 				Fields: map[string]string{
 					"status": "abc",
@@ -64,13 +64,13 @@ func TestParseRouterLog(t *testing.T) {
 		},
 		{"status 5abc is unknown", `status=5abc`,
 			LogEntry{
-				Timestamp: envTime,
+				Timestamp: timePrefixParsed,
 				Level:     LevelUnknown,
 				Fields:    map[string]string{"status": "5abc"}},
 		},
 		{"no status", `method=GET path="/password" duration=0.030s`,
 			LogEntry{
-				Timestamp: envTime,
+				Timestamp: timePrefixParsed,
 				Level:     LevelUnknown,
 				Fields: map[string]string{
 					"method":   "GET",

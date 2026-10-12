@@ -102,6 +102,12 @@ Each entry: what was decided — why — the alternative not chosen.
   parsed; the zone word is skipped only if it is 3–4 uppercase letters. —
   Finding `[` first broke on brackets inside payloads. *Accepted trade-off:*
   a short uppercase word after the offset (e.g. `WARN`) is taken as a zone.
+- **Every entry leaves `ParseLog` in UTC** — one choke point converts the
+  timestamp on every path; stage parsers may return local times.
+  `TestParseLog` checks `Location() == time.UTC` in every row. — Storage and
+  hourly buckets need one location, `reflect.DeepEqual` compares the location,
+  and a rule enforced at the boundary cannot be forgotten at call sites.
+  *Not chosen:* `.UTC()` in each parser (`parseTimestamp`, `ParseAppLog`).
 - **`[container]` is optional.** A `[` without `]` is not handled. — Not
   seen in real Scalingo lines; `Raw` keeps the line.
 - **No timestamp → envelope with only `Raw`, plus an error.** Nothing in such

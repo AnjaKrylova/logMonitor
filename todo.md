@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 3 — Real-World Log Parsing.
-**Next step:** TDD `ParseLog`, the dispatcher (see below).
+**Next step:** `ParseAppLog` → `Fields` (flatten nested values), then Exercise 4.
 
 ---
 
@@ -32,16 +32,19 @@ Done:
 - [x] `TestParseAppLog` refactored: rows take only a payload
 - [x] `ParseRouterLog` — logfmt pairs into `Fields`; level from `status` via `strconv.Atoi` (≥500 Error, ≥400 Warn, else Info; missing or non-numeric → Unknown) (7 rows)
 - [x] `LogEntry.Fields` changed to `map[string]string`
+- [x] Split `parser.go` into `envelope.go`, `applog.go`, `routerlog.go`, `parser.go`
+- [x] `ParseLog(rawLine, receivedAt) LogEntry` — dispatches router/app; no timestamp → `Raw`, `LevelUnknown`, `receivedAt`; every entry leaves in UTC (4 rows)
 
 Next:
 
-- [ ] **TDD `ParseLog(rawLine string, receivedAt time.Time) LogEntry`** — no line without timestamp is dropped: `Raw`, `LevelUnknown`, `Timestamp = receivedAt`; rows: router line, app line, line without timestamp, garbage; assert `entry.Raw == rawLine` in every row
 - [ ] **TDD `ParseAppLog` → `Fields`** — `data.error.message`, `data.error.stack`, `origin`, `params` are decoded but dropped; put them into `Fields`, flattening nested values into string keys (`"origin.file"`, `"origin.line": "158"`; requirement: keep custom structured fields). Not urgent: `Raw` keeps them, nothing queries `Fields` before Exercise 12
 
 Optional:
 
 - [ ] Guard row in `TestParseAppLog` with two broken fields (`{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}` → envelope time)
 - [ ] Per-field checks instead of `reflect.DeepEqual` in `TestParseAppLog` (`%q`, `Timestamp.Equal`, decide `nil` vs empty `Fields`)
+- [ ] `ParseLog`: convert to UTC once (pick entry, convert, return) instead of in three places
+- [ ] `TestParseLog`: row with a non-UTC `receivedAt` (e.g. `receivedAt.In(time.FixedZone("CET", 3600))`) to prove the fallback path converts too
 
 ---
 

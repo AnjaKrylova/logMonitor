@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 3 — Real-World Log Parsing.
-**Next step:** `ParseAppLog` → `Fields` (flatten nested values), then Exercise 4.
+**Next step:** step 2 of `ParseAppLog` → `Fields`: wire `flatten` in (open question: struct and `map[string]any` from one payload; skipping mapped keys), then Exercise 4.
 
 ---
 
@@ -37,12 +37,14 @@ Done:
 
 Next:
 
-- [ ] **TDD `ParseAppLog` → `Fields`** — `data.error.message`, `data.error.stack`, `origin`, `params` are decoded but dropped; put them into `Fields`, flattening nested values into string keys (`"origin.file"`, `"origin.line": "158"`; requirement: keep custom structured fields). Not urgent: `Raw` keeps them, nothing queries `Fields` before Exercise 12
+- [ ] **TDD `ParseAppLog` → `Fields`** (rules: Decisions in overview)
+  1. [x] `flatten` helper (still missing: a doc comment) with its own table test: string, number `158` → `"158"`, nested object → `origin.file`, array → `params.0`, empty array/object → no key, `null` → no key
+  2. [ ] `"real error log"` row expects `Fields`; wire `flatten` into `ParseAppLog`, skipping already-mapped keys; no extras → `nil`
 
 Optional:
 
-- [ ] Guard row in `TestParseAppLog` with two broken fields (`{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}` → envelope time)
-- [ ] Per-field checks instead of `reflect.DeepEqual` in `TestParseAppLog` (`%q`, `Timestamp.Equal`, decide `nil` vs empty `Fields`)
+- [x] Guard row in `TestParseAppLog` with two broken fields (`{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}` → envelope time)
+- [ ] Per-field checks instead of `reflect.DeepEqual` in `TestParseAppLog` (`%q`, `Timestamp.Equal`)
 - [ ] `ParseLog`: convert to UTC once (pick entry, convert, return) instead of in three places
 - [ ] `TestParseLog`: row with a non-UTC `receivedAt` (e.g. `receivedAt.In(time.FixedZone("CET", 3600))`) to prove the fallback path converts too
 

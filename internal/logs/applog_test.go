@@ -1,6 +1,7 @@
 package logs
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -92,6 +93,68 @@ func TestParseAppLog(t *testing.T) {
 			result := ParseAppLog(input)
 			if !reflect.DeepEqual(result, want) {
 				t.Errorf("ParseAppLog(%q)\n got: %+v\nwant: %+v", d.payload, result, want)
+			}
+		})
+	}
+}
+
+func TestFlatten(t *testing.T) {
+	data := []struct {
+		name  string
+		input string
+		want  map[string]string
+	}{{
+		"simple string", `{"k":"v"}`, map[string]string{"k": "v"},
+	}, {
+		"simple number", `{"line":158}`, map[string]string{"line": "158"},
+	}, {
+		"big number", `{"big":1757329978852}`, map[string]string{"big": "1757329978852"},
+	}, {
+		"boolean", `{"ok":true}`, map[string]string{"ok": "true"},
+	}, {
+		"nested object", `{"origin":{"file":"src/main.ts","line":158}}`, map[string]string{
+			"origin.file": "src/main.ts",
+			"origin.line": "158",
+		},
+	}, {
+		"array of primitives", `{"params":["a",3]}`, map[string]string{
+			"params.0": "a",
+			"params.1": "3",
+		},
+	}, {
+		"array of objects", `{"params":[{"id":1}]}`, map[string]string{
+			"params.0.id": "1",
+		},
+	}, {
+		"null value", `{"k":null}`, map[string]string{},
+	}, {
+		"empty values", `{"a":null,"b":[],"c":{}}`, map[string]string{},
+	}, {
+		"mixed null and non-null", `{"a":null,"b":"x"}`, map[string]string{
+			"b": "x",
+		},
+	}, {
+		"empty string value", `{"k":""}`, map[string]string{
+			"k": "",
+		},
+	}, {
+		"float value", `{"ratio":1.5}`, map[string]string{
+			"ratio": "1.5",
+		},
+	}}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			var v any
+			err := json.Unmarshal([]byte(d.input), &v)
+			if err != nil {
+				t.Fatalf("Unmarshal(%q) failed: %v", d.input, err)
+			}
+
+			out := map[string]string{}
+			flatten("", v, out)
+			if !reflect.DeepEqual(out, d.want) {
+				t.Errorf("flatten(%q)\n got: %+v\nwant: %+v", d.input, out, d.want)
 			}
 		})
 	}

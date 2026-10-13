@@ -144,6 +144,13 @@ Each entry: what was decided — why — the alternative not chosen.
 - **Router entries leave `Message` and `App` empty**; everything is in
   `Fields`. — Simplest; `host` is a hostname, not the app. *Possible later:*
   a summary message such as `"GET /password 200"` built from `Fields`.
+- **App `Fields` = every payload key not already mapped to a `LogEntry`
+  field** (`app.name`, `level`, `message`, `timestamp`, `data.error.code`
+  are skipped), flattened with dotted keys; array items as `params.0`;
+  empty arrays/objects and `null` add no key; no extras → `Fields` is `nil`.
+  — Keeps unknown custom fields; `null` is "nothing here" like `[]`.
+  *Not chosen:* a fixed list of known keys; `null` → `"k": ""` (fake value,
+  indistinguishable from a real empty string; `Raw` keeps the original).
 
 Possible later: record the malformed field in `Fields["parse_error"]` to
 monitor apps that send broken logs.

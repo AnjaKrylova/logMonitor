@@ -7,23 +7,21 @@ import (
 	"time"
 )
 
+// mappedKeys are payload keys that already have a LogEntry field; they are kept out of Fields.
+var mappedKeys = []string{"app.name", "data.error.code", "level", "message", "timestamp"}
+
 type appLogPayload struct {
 	App struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
+		Name string `json:"name"`
 	} `json:"app"`
 	Level     string `json:"level"`
 	Message   string `json:"message"`
 	Timestamp int64  `json:"timestamp"` // Unix epoch milliseconds
 	Data      struct {
 		Error struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-			Stack   string `json:"stack"`
+			Code string `json:"code"`
 		} `json:"error"`
 	} `json:"data"`
-	Origin map[string]any `json:"origin"`
-	Params []any          `json:"params"`
 }
 
 func ParseAppLog(envelope Envelope) LogEntry {
@@ -40,11 +38,22 @@ func ParseAppLog(envelope Envelope) LogEntry {
 		}
 	}
 
-	timestamp := envelope.Timestamp
+	var raw map[string]any
+	_ = json.Unmarshal([]byte(envelope.Payload), &raw) // non-object JSON (e.g. 42) leaves raw nil → no Fields
+	out := map[string]string{}
+	flatten("", raw, out)
+	for _, key := range mappedKeys {
+		delete(out, key)
+	}
+	if len(out) == 0 {
+		out = nil
+	}
 
+	timestamp := envelope.Timestamp
 	if parsedAppLog.Timestamp != 0 {
 		timestamp = time.UnixMilli(parsedAppLog.Timestamp)
 	}
+
 	level, _ := ParseLogLevel(parsedAppLog.Level)
 
 	return LogEntry{
@@ -55,9 +64,13 @@ func ParseAppLog(envelope Envelope) LogEntry {
 		Message:   parsedAppLog.Message,
 		ErrorCode: parsedAppLog.Data.Error.Code,
 		Raw:       envelope.Raw,
+		Fields:    out,
 	}
 }
 
+// flatten writes every leaf value of v into out as a string, keyed by its
+// dotted path from prefix (origin.file, params.0). null values and empty
+// objects or arrays add no key.
 func flatten(path string, v any, out map[string]string) {
 	switch x := v.(type) {
 	case string:

@@ -35,13 +35,20 @@ func TestParseAppLog(t *testing.T) {
 		payload string
 		want    LogEntry
 	}{
-		// The one real sample: every field the parser maps is present.
 		{"real error log", appLogErrorPayload, LogEntry{
 			Timestamp: payloadTime,
 			App:       "demo-app",
 			Level:     LevelError,
 			Message:   "Error processing request",
 			ErrorCode: "FETCH_CLIENT_ERROR_REQUEST_TIMEOUT",
+			Fields: map[string]string{
+				"app.version":        "3.4.2",
+				"data.error.message": "Request aborted after 5000 milliseconds",
+				"data.error.stack":   "Error: Request aborted after 5000 milliseconds\n at ClientRequest.parseResponseError (/app/node_modules/@hedia/fetch/src/index.ts:405:10)",
+				"origin.column":      "30",
+				"origin.file":        "src/main.ts",
+				"origin.line":        "158",
+			},
 		}},
 
 		// JSON payloads: each one carries only the fields its row is about.

@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 3 — Real-World Log Parsing.
-**Next step:** step 2 of `ParseAppLog` → `Fields`: wire `flatten` in (open question: struct and `map[string]any` from one payload; skipping mapped keys), then Exercise 4.
+**Current:** Exercise 4 — Repository (not started).
+**Next step:** design `LogRepository` (`Save`, `Find`) and the first red test for `MemoryLogRepository`.
 
 ---
 
@@ -21,7 +21,7 @@ Every step is TDD: red → green → refactor (see overview).
 - [x] `ParseLogLevel(s) (LogLevel, error)` — `LevelUnknown` + error for unknown input
 - [x] Table tests in `log_test.go` (case, whitespace, empty, invalid)
 
-## Exercise 3 — Real-world log parsing
+## Exercise 3 — Real-world log parsing ✅
 
 Done:
 
@@ -34,14 +34,9 @@ Done:
 - [x] `LogEntry.Fields` changed to `map[string]string`
 - [x] Split `parser.go` into `envelope.go`, `applog.go`, `routerlog.go`, `parser.go`
 - [x] `ParseLog(rawLine, receivedAt) LogEntry` — dispatches router/app; no timestamp → `Raw`, `LevelUnknown`, `receivedAt`; every entry leaves in UTC (4 rows)
+- [x] `ParseAppLog` → `Fields`: `flatten` helper (12 rows) + second decode into `map[string]any`, `mappedKeys` deleted, no extras → `nil` (rules: Decisions in overview)
 
-Next:
-
-- [ ] **TDD `ParseAppLog` → `Fields`** (rules: Decisions in overview)
-  1. [x] `flatten` helper (still missing: a doc comment) with its own table test: string, number `158` → `"158"`, nested object → `origin.file`, array → `params.0`, empty array/object → no key, `null` → no key
-  2. [ ] `"real error log"` row expects `Fields`; wire `flatten` into `ParseAppLog`, skipping already-mapped keys; no extras → `nil`
-
-Optional:
+Optional (can be picked up any time):
 
 - [x] Guard row in `TestParseAppLog` with two broken fields (`{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}` → envelope time)
 - [ ] Per-field checks instead of `reflect.DeepEqual` in `TestParseAppLog` (`%q`, `Timestamp.Equal`)
@@ -54,20 +49,20 @@ Optional:
 
 Detail is added when an exercise starts.
 
-- [ ] **4. Repository** — `LogRepository` interface (`Save`, `Find`) + `MemoryLogRepository`; filter by from/to/app. *Interfaces at meaningful boundaries, slices.*
-- [ ] **5. Goroutines & channels** — fake producer → channel → consumer → repository; 1,000 logs. *`go`, `chan`, `close`, `range` over a channel.*
-- [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. *`sync.WaitGroup`, backpressure.*
-- [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. *`context.WithTimeout`, `defer cancel()`.*
-- [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. *JSON decoding, validation, handler design.*
-- [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). *Buffered channels, design trade-offs.*
-- [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. *Interfaces, generators.*
-- [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. *Concurrent producers, lifecycle.*
-- [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. *Query parsing separate from storage.*
-- [ ] **13. Aggregation** — hourly buckets, including zero-count hours. *Time bucketing, maps.*
+- [ ] **4. Repository** — `LogRepository` interface (`Save`, `Find`) + `MemoryLogRepository`; filter by from/to/app. _Interfaces at meaningful boundaries, slices._
+- [ ] **5. Goroutines & channels** — fake producer → channel → consumer → repository; 1,000 logs. _`go`, `chan`, `close`, `range` over a channel._
+- [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._
+- [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. _`context.WithTimeout`, `defer cancel()`._
+- [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. _JSON decoding, validation, handler design._
+- [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
+- [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._
+- [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._
+- [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._
+- [ ] **13. Aggregation** — hourly buckets, including zero-count hours. _Time bucketing, maps._
 - [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`.
-- [ ] **15. Redis** — `RedisLogRepository` behind the same interface. *External dependencies, integration tests.*
+- [ ] **15. Redis** — `RedisLogRepository` behind the same interface. _External dependencies, integration tests._
 - [ ] **16. Scalingo integration** — `ScalingoLogSource`; investigate drains vs streaming first. App name comes from the source.
-- [ ] **17. Retry & backoff** — exponential backoff with a max delay. *`time.NewTimer`, `select` with `ctx.Done()`.*
-- [ ] **18. Graceful shutdown** — SIGTERM → stop intake → drain queue → close storage. *`signal.NotifyContext`.*
+- [ ] **17. Retry & backoff** — exponential backoff with a max delay. _`time.NewTimer`, `select` with `ctx.Done()`._
+- [ ] **18. Graceful shutdown** — SIGTERM → stop intake → drain queue → close storage. _`signal.NotifyContext`._
 - [ ] **19. Time handling** — define "today" (Europe/Copenhagen), store UTC; test midnight, DST, month/year boundaries.
 - [ ] **20. Testing review** — fill gaps; `httptest`, `-race`, coverage, benchmarks, integration tests.

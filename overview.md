@@ -151,6 +151,16 @@ Each entry: what was decided — why — the alternative not chosen.
   — Keeps unknown custom fields; `null` is "nothing here" like `[]`.
   *Not chosen:* a fixed list of known keys; `null` → `"k": ""` (fake value,
   indistinguishable from a real empty string; `Raw` keeps the original).
+- **Storage lives in `internal/storage`**, interface next to its
+  implementations (memory, later Redis). — `logs` stays about entries and
+  parsing; `storage` imports `logs`, never the reverse. *Not chosen:*
+  interface on the consumer side (no consumer exists yet).
+- **`LogFilter` uses `time.Time`, half-open `[From, To)`; zero-value fields
+  mean "no limit".** — Typed comparison in every implementation; adjacent
+  windows (hourly buckets) never double-count. Parsing text → time belongs to
+  the query layer. *Not chosen:* string times; inclusive `To`.
+- **`Save`/`Find` return `error`** even though memory never fails. — Redis
+  behind the same interface can.
 
 Possible later: record the malformed field in `Fields["parse_error"]` to
 monitor apps that send broken logs.

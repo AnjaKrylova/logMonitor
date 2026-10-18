@@ -13,6 +13,6 @@ type LogFilter struct {
 }
 
 type LogRepository interface {
-	Save(entry logs.LogEntry) error
-	Find(filter LogFilter) ([]logs.LogEntry, error)
+	Save(e logs.LogEntry) error
+	Find(f LogFilter) ([]logs.LogEntry, error)
 }

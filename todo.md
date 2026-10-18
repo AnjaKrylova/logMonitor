@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 4 — Repository (in progress).
-**Next step:** make `TestMemoryLogRepository_Find` green (test is red: `Find` returns nothing) — slice field, pointer receivers (rename `p`), `Save` appends, `Find` returns stored entries. Test nits: print the failing entry in the `Save` loop, rename `v`, `%+v` in the final `Errorf`.
+**Next step:** first filter row (red) in `TestMemoryLogRepository_Find`. Note: `slices.Clone(nil)` is `nil` — decide what "no match" returns.
 
 ---
 
@@ -51,7 +51,8 @@ Detail is added when an exercise starts.
 
 - [ ] **4. Repository** — `LogRepository` interface (`Save`, `Find`) + `MemoryLogRepository`; filter by from/to/app. _Interfaces at meaningful boundaries, slices._
   - [x] `LogRepository` + `LogFilter` in `internal/storage/repository.go` (rules: Decisions in overview)
-  - [ ] `MemoryLogRepository`: save + `Find` with an empty filter
+  - [x] `MemoryLogRepository`: save + `Find` with an empty filter
+  - [x] `Find` returns a copy (`slices.Clone`), proven by `TestMemoryLogRepository_FindReturnsCopy`
   - [ ] Filter rows: `From` inclusive, `To` exclusive, `App`, combinations, no match → empty
 - [ ] **5. Goroutines & channels** — fake producer → channel → consumer → repository; 1,000 logs. _`go`, `chan`, `close`, `range` over a channel._
 - [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._

@@ -1,15 +1,20 @@
 package storage
 
-import "logmonitor/internal/logs"
+import (
+	"slices"
+
+	"logmonitor/internal/logs"
+)
 
 type MemoryLogRepository struct {
-	logEntry *logs.LogEntry
+	entries []logs.LogEntry
 }
 
-func (p MemoryLogRepository) Save(entry logs.LogEntry) error {
+func (m *MemoryLogRepository) Save(e logs.LogEntry) error {
+	m.entries = append(m.entries, e)
 	return nil
 }
 
-func (p MemoryLogRepository) Find(filter LogFilter) ([]logs.LogEntry, error) {
-	return []logs.LogEntry{}, nil
+func (m *MemoryLogRepository) Find(filter LogFilter) ([]logs.LogEntry, error) {
+	return slices.Clone(m.entries), nil
 }

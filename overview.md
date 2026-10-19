@@ -161,6 +161,15 @@ Each entry: what was decided — why — the alternative not chosen.
   the query layer. *Not chosen:* string times; inclusive `To`.
 - **`Save`/`Find` return `error`** even though memory never fails. — Redis
   behind the same interface can.
+- **`Find` with no match returns `nil`**, not `[]LogEntry{}`. — Simplest and
+  idiomatic: a nil slice behaves like an empty one (`len`, `range`, `append`),
+  and filtering with `append` / `slices.Clone(nil)` produce it naturally.
+  *Consequence:* JSON encodes it as `null`; the `GET /logs` handler
+  (Exercise 12) turns it into `[]`. *Not chosen:* always non-nil.
+- **`Find` returns a new slice** (built with `append`), never the internal
+  one. — Callers can't change stored entries through the result.
+- **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
+  place defines what a filter means; `Find` just loops and keeps matches.
 
 Possible later: record the malformed field in `Fields["parse_error"]` to
 monitor apps that send broken logs.

@@ -40,6 +40,7 @@ func ParseAppLog(envelope Envelope) LogEntry {
 
 	var raw map[string]any
 	_ = json.Unmarshal([]byte(envelope.Payload), &raw) // non-object JSON (e.g. 42) leaves raw nil → no Fields
+
 	out := map[string]string{}
 	flatten("", raw, out)
 	for _, key := range mappedKeys {

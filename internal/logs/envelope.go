@@ -35,6 +35,7 @@ func ParseEnvelope(line string) (Envelope, error) {
 	} else {
 		payload = strings.TrimSpace(rest)
 	}
+
 	return Envelope{Timestamp: t, Container: container, Payload: payload, Raw: line}, nil
 }
 
@@ -46,11 +47,13 @@ func parseTimestamp(line string) (time.Time, string, error) {
 	if isTimeZone(word) {
 		rest = after
 	}
+
 	rawTime := strings.Join([]string{date, clock, offset}, " ")
 	parsedTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700", rawTime)
 	if err != nil {
 		return time.Time{}, "", fmt.Errorf("parse timestamp: %w", err)
 	}
+
 	return parsedTime, rest, nil
 }
 
@@ -58,6 +61,7 @@ func isTimeZone(s string) bool {
 	if !(len(s) >= 3 && len(s) <= 5) {
 		return false
 	}
+
 	for _, r := range s {
 		if !unicode.IsUpper(r) {
 			return false

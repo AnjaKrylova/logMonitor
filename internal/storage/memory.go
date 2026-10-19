@@ -1,8 +1,6 @@
 package storage
 
 import (
-	"slices"
-
 	"logmonitor/internal/logs"
 )
 
@@ -15,6 +13,12 @@ func (m *MemoryLogRepository) Save(e logs.LogEntry) error {
 	return nil
 }
 
-func (m *MemoryLogRepository) Find(filter LogFilter) ([]logs.LogEntry, error) {
-	return slices.Clone(m.entries), nil
+func (m *MemoryLogRepository) Find(f LogFilter) ([]logs.LogEntry, error) {
+	var result []logs.LogEntry
+	for _, e := range m.entries {
+		if f.matches(e) {
+			result = append(result, e)
+		}
+	}
+	return result, nil
 }

@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 4 — Repository (in progress).
-**Next step:** first filter row (red) in `TestMemoryLogRepository_Find`. Note: `slices.Clone(nil)` is `nil` — decide what "no match" returns.
+**Current:** Exercise 4 — Repository (core done, all green).
+**Next step:** optional naming in `matches` (`afterTo` → `atOrAfterTo`, bring back `beforeFrom`); then start Exercise 5 (goroutines & channels).
 
 ---
 
@@ -53,7 +53,10 @@ Detail is added when an exercise starts.
   - [x] `LogRepository` + `LogFilter` in `internal/storage/repository.go` (rules: Decisions in overview)
   - [x] `MemoryLogRepository`: save + `Find` with an empty filter
   - [x] `Find` returns a copy (`slices.Clone`), proven by `TestMemoryLogRepository_FindReturnsCopy`
-  - [ ] Filter rows: `From` inclusive, `To` exclusive, `App`, combinations, no match → empty
+  - [x] Filter rows written (red): `From` inclusive, `To` exclusive (ns boundaries), `App`, combination, no match / empty repo → `nil`
+  - [x] `Find` filtering green — one loop, each check `continue`s on fail, single `append`
+  - [x] Refactor: early return removed; checks moved to `LogFilter.matches(e) bool` (repository.go)
+  - [x] logs package tidy-up: `levelFromStatus` extracted from `ParseRouterLog`, blank lines between steps
 - [ ] **5. Goroutines & channels** — fake producer → channel → consumer → repository; 1,000 logs. _`go`, `chan`, `close`, `range` over a channel._
 - [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._
 - [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. _`context.WithTimeout`, `defer cancel()`._

@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 4 — Repository (core done, all green).
-**Next step:** optional naming in `matches` (`afterTo` → `atOrAfterTo`, bring back `beforeFrom`); then start Exercise 5 (goroutines & channels).
+**Current:** Exercise 5 — Goroutines & channels (not started).
+**Next step:** consumer — reads the producer's channel and saves each entry into a `storage.LogRepository`; then wire 1,000 logs end to end.
 
 ---
 
@@ -49,7 +49,7 @@ Optional (can be picked up any time):
 
 Detail is added when an exercise starts.
 
-- [ ] **4. Repository** — `LogRepository` interface (`Save`, `Find`) + `MemoryLogRepository`; filter by from/to/app. _Interfaces at meaningful boundaries, slices._
+- [x] **4. Repository** ✅ — `LogRepository` interface (`Save`, `Find`) + `MemoryLogRepository`; filter by from/to/app. _Interfaces at meaningful boundaries, slices._
   - [x] `LogRepository` + `LogFilter` in `internal/storage/repository.go` (rules: Decisions in overview)
   - [x] `MemoryLogRepository`: save + `Find` with an empty filter
   - [x] `Find` returns a copy (`slices.Clone`), proven by `TestMemoryLogRepository_FindReturnsCopy`
@@ -58,6 +58,9 @@ Detail is added when an exercise starts.
   - [x] Refactor: early return removed; checks moved to `LogFilter.matches(e) bool` (repository.go)
   - [x] logs package tidy-up: `levelFromStatus` extracted from `ParseRouterLog`, blank lines between steps
 - [ ] **5. Goroutines & channels** — fake producer → channel → consumer → repository; 1,000 logs. _`go`, `chan`, `close`, `range` over a channel._
+  - [x] `ingest.Producer(n) <-chan logs.LogEntry` — generator: creates, fills, closes; `TestProducer` (run with `-timeout 5s`)
+  - [ ] Consumer → repository
+  - [ ] 1,000 logs end to end
 - [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._
 - [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. _`context.WithTimeout`, `defer cancel()`._
 - [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. _JSON decoding, validation, handler design._

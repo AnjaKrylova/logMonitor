@@ -9,7 +9,6 @@ import (
 var receivedAt = time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func TestParseLog(t *testing.T) {
-
 	data := []struct {
 		name string
 		line string

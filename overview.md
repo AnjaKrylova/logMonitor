@@ -168,6 +168,9 @@ Each entry: what was decided — why — the alternative not chosen.
   (Exercise 12) turns it into `[]`. *Not chosen:* always non-nil.
 - **`Find` returns a new slice** (built with `append`), never the internal
   one. — Callers can't change stored entries through the result.
+- **Moving entries into the system lives in `internal/ingest`** (producer,
+  consumer; later the processor and ingestor). — Keeps `logs` (parsing) and
+  `storage` (saving) unaware of channels. *Not chosen:* `processdata` (vague).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 5 — Goroutines & channels (not started).
-**Next step:** consumer — reads the producer's channel and saves each entry into a `storage.LogRepository`; then wire 1,000 logs end to end.
+**Current:** Exercise 5 — Goroutines & channels (in progress).
+**Next step:** 1,000 logs end to end — decide where (test and/or `main.go`).
 
 ---
 
@@ -59,7 +59,7 @@ Detail is added when an exercise starts.
   - [x] logs package tidy-up: `levelFromStatus` extracted from `ParseRouterLog`, blank lines between steps
 - [ ] **5. Goroutines & channels** — fake producer → channel → consumer → repository; 1,000 logs. _`go`, `chan`, `close`, `range` over a channel._
   - [x] `ingest.Producer(n) <-chan logs.LogEntry` — generator: creates, fills, closes; `TestProducer` (run with `-timeout 5s`)
-  - [ ] Consumer → repository
+  - [x] `ingest.Consumer(ch, repo) int` — ranges, saves, `slog.Error` + continue on failure, returns saved count
   - [ ] 1,000 logs end to end
 - [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._
 - [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. _`context.WithTimeout`, `defer cancel()`._

@@ -2,6 +2,7 @@ package storage_test
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -148,5 +149,26 @@ func TestMemoryLogRepository_FindReturnsCopy(t *testing.T) {
 	}
 	if result2[0].Message != entry.Message {
 		t.Errorf("stored entry was modified through Find result: got %q, want %q", result2[0].Message, entry.Message)
+	}
+}
+
+func TestMemoryLogRepository_ConcurrentSave(t *testing.T) {
+	var repo storage.LogRepository = &storage.MemoryLogRepository{}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10_000; i++ {
+		wg.Go(func() {
+			repo.Save(logs.LogEntry{})
+		})
+	}
+	wg.Wait()
+
+	filter := storage.LogFilter{}
+	result, err := repo.Find(filter)
+	if err != nil {
+		t.Fatalf("Find(%+v) failed: %v", filter, err)
+	}
+	if len(result) != 10_000 {
+		t.Fatalf("Find returned %d entries, want 10_000", len(result))
 	}
 }

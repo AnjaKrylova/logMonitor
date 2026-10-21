@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 6 — Worker pool (not started).
-**Next step:** design `Processor{workers}` with `Start(ctx)`; first step: what does a worker do?
+**Current:** Exercise 6 — Worker pool (in progress).
+**Next step:** `Processor{workers}` — start N workers on one channel, wait for all with `wg.Go`; first red test.
 
 ---
 
@@ -62,6 +62,9 @@ Detail is added when an exercise starts.
   - [x] `ingest.Consumer(ch, repo) int` — ranges, saves, `slog.Error` + continue on failure, returns saved count
   - [x] 1,000 logs end to end — `TestConsumer` table: 0, 5, 1_000 entries
 - [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._
+  - [x] `MemoryLogRepository` concurrency-safe (`sync.Mutex` in `Save` + `Find`), proven by `TestMemoryLogRepository_ConcurrentSave` (10,000 saves)
+  - [ ] `Processor{workers}`: N workers on one channel
+  - [ ] Compare 1/2/4/8 workers on 100k logs
 - [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. _`context.WithTimeout`, `defer cancel()`._
 - [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. _JSON decoding, validation, handler design._
 - [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._

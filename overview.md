@@ -171,6 +171,11 @@ Each entry: what was decided — why — the alternative not chosen.
 - **Moving entries into the system lives in `internal/ingest`** (producer,
   consumer; later the processor and ingestor). — Keeps `logs` (parsing) and
   `storage` (saving) unaware of channels. *Not chosen:* `processdata` (vague).
+- **`MemoryLogRepository` is safe for concurrent use: a `sync.Mutex` inside,
+  locked in both `Save` and `Find`.** — Workers save in parallel, and HTTP
+  handlers (Exercise 12) will `Find` meanwhile. Mutex protects state;
+  channels move work. *Not chosen:* a single owner goroutine with
+  request/reply channels (≈3× the code for the same result).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

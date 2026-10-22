@@ -40,6 +40,18 @@ Scalingo (70 apps) ── log drain / stream ──> Go ingestion
                                         /logs         /stats ──> frontend
 ```
 
+What exists today (`internal/ingest`):
+
+```text
+Producer(n) ──> channel ──> Processor.Run ──> N × Consumer ──> LogRepository.Save
+ makes entries   carries     starts N workers    each: read,        stores them
+ (fake source)   entries     and waits for all   save, count        (mutex-safe)
+```
+
+- **Producer**: where entries come from (fake now; `LogSource` in Exercise 10).
+- **Consumer**: one worker, reads the channel and saves each entry.
+- **Processor**: the manager, runs N consumers on the same channel.
+
 Principles:
 
 - **Depend on interfaces at the edges.** `LogSource` (fake → Scalingo) and
@@ -176,6 +188,12 @@ Each entry: what was decided — why — the alternative not chosen.
   handlers (Exercise 12) will `Find` meanwhile. Mutex protects state;
   channels move work. *Not chosen:* a single owner goroutine with
   request/reply channels (≈3× the code for the same result).
+- **Cancellation drains: only the producer watches `ctx`.** On cancel it
+  stops sending and closes the channel; consumers finish what is in flight
+  and `Run` returns. — No log already in the pipeline is lost; matches the
+  graceful shutdown plan (Exercise 18). *Not chosen:* consumers also stop on
+  `ctx` (faster, but drops entries). Consumers get `ctx` later only to pass
+  into `Save` (Redis, Exercise 15).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

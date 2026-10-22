@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 6 — Worker pool (in progress).
-**Next step:** `Processor{workers}` — start N workers on one channel, wait for all with `wg.Go`; first red test.
+**Current:** Exercise 8 — Ingestion API (not started).
+**Next step:** design `POST /ingest`: what the request body looks like, validation, and where the handler sends entries.
 
 ---
 
@@ -61,11 +61,14 @@ Detail is added when an exercise starts.
   - [x] `ingest.Producer(n) <-chan logs.LogEntry` — generator: creates, fills, closes; `TestProducer` (run with `-timeout 5s`)
   - [x] `ingest.Consumer(ch, repo) int` — ranges, saves, `slog.Error` + continue on failure, returns saved count
   - [x] 1,000 logs end to end — `TestConsumer` table: 0, 5, 1_000 entries
-- [ ] **6. Worker pool** — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._
+- [x] **6. Worker pool** ✅ — `Processor{workers}` with `Start(ctx)`; compare 1/2/4/8 workers on 100k logs. _`sync.WaitGroup`, backpressure._
   - [x] `MemoryLogRepository` concurrency-safe (`sync.Mutex` in `Save` + `Find`), proven by `TestMemoryLogRepository_ConcurrentSave` (10,000 saves)
-  - [ ] `Processor{workers}`: N workers on one channel
-  - [ ] Compare 1/2/4/8 workers on 100k logs
-- [ ] **7. Context** — every important operation takes `ctx`; timeouts and cancellation. _`context.WithTimeout`, `defer cancel()`._
+  - [x] `Processor{NumberOfWorkers, Repository}.Run(ch)` — N `Consumer`s via `wg.Go`, blocks until all done; `TestProcessor_Run` (1/2/4/8 workers)
+  - [x] Compare 1/2/4/8 workers on 100k logs — `BenchmarkProcessor_Run`: 1 worker fastest (~60 ms), 8 slowest (~73 ms); all workers queue on the repository mutex and the work per entry is tiny. `ctx` deferred to Exercise 7.
+- [x] **7. Context** ✅ — every important operation takes `ctx`; timeouts and cancellation. _`context.WithTimeout`, `defer cancel()`._
+  - [x] `Producer(ctx, n)` — `select` on `ctx.Done()` vs send, `defer close(ch)` inside the goroutine; `TestProducer_Cancel` (cancel after 5 of 1,000,000); tests use `t.Context()`
+  - [x] Processor / Consumer and ctx — decided: drain; only the producer watches `ctx` (see Decisions)
+  - [x] Timeout with `context.WithTimeout` — `TestProcessor_Run_Timeout`: 50 ms deadline on 10M entries, `Run` returns in ~70 ms
 - [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. _JSON decoding, validation, handler design._
 - [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
 - [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._

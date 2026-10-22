@@ -131,6 +131,7 @@ func TestMemoryLogRepository_FindReturnsCopy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Save(%+v) failed: %v", entry, err)
 	}
+
 	filter := storage.LogFilter{}
 	result, err := repo.Find(filter)
 	if err != nil {
@@ -139,7 +140,9 @@ func TestMemoryLogRepository_FindReturnsCopy(t *testing.T) {
 	if len(result) != 1 {
 		t.Fatalf("Find returned %d entries, want 1", len(result))
 	}
+
 	result[0].Message = "new value"
+
 	result2, err := repo.Find(filter)
 	if err != nil {
 		t.Fatalf("Find(%+v) failed: %v", filter, err)
@@ -147,6 +150,7 @@ func TestMemoryLogRepository_FindReturnsCopy(t *testing.T) {
 	if len(result2) != 1 {
 		t.Fatalf("Find returned %d entries, want 1", len(result2))
 	}
+
 	if result2[0].Message != entry.Message {
 		t.Errorf("stored entry was modified through Find result: got %q, want %q", result2[0].Message, entry.Message)
 	}
@@ -169,6 +173,6 @@ func TestMemoryLogRepository_ConcurrentSave(t *testing.T) {
 		t.Fatalf("Find(%+v) failed: %v", filter, err)
 	}
 	if len(result) != 10_000 {
-		t.Fatalf("Find returned %d entries, want 10_000", len(result))
+		t.Fatalf("Find returned %d entries, want %d", len(result), 10_000)
 	}
 }

@@ -105,6 +105,7 @@ func TestParseEnvelope(t *testing.T) {
 			if (err != nil) != d.wantErr {
 				t.Errorf("ParseEnvelope(%q) error = %v, wantErr %v", d.input, err, d.wantErr)
 			}
+
 			// The envelope is checked even on error: Raw must never be lost.
 			// time.Parse gives the CEST timestamp a synthetic location, so compare
 			// instants with Equal instead of comparing whole structs.

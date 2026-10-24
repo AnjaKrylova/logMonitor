@@ -101,6 +101,17 @@ Policy: **never lose a log.** Stage-2 parsers never fail; they parse what
 they can and fall back for the rest. Low-level helpers (`ParseLogLevel`,
 `parseTimestamp`) report errors; the higher level decides the fallback.
 
+## Scalingo log drains (findings, 2026-10-22)
+
+From [the log drain docs](https://doc.scalingo.com/platform/app/log-drain):
+syslog over UDP / TCP / TCP+TLS is supported. A target that fails to accept
+10 consecutive lines is **quarantined for 5 minutes** (no lines sent), and
+the quarantine grows (10, 15, 20 min…) while it keeps failing. Retries,
+buffering or replay are **not documented**: assume lines rejected or sent
+during quarantine are lost for us. *Consequence for Exercise 9:* rejecting
+under load is risky; the ingestion side should accept fast and absorb
+bursts. Ask Scalingo support for the exact rules in Exercise 16.
+
 ## Decisions
 
 Each entry: what was decided — why — the alternative not chosen.
@@ -194,6 +205,16 @@ Each entry: what was decided — why — the alternative not chosen.
   graceful shutdown plan (Exercise 18). *Not chosen:* consumers also stop on
   `ctx` (faster, but drops entries). Consumers get `ctx` later only to pass
   into `Save` (Redis, Exercise 15).
+- **`POST /ingest` takes a raw Scalingo-format line** (`{"line": "..."}`)
+  and the handler calls `ParseLog`. — The same parsing then serves a future
+  syslog listener (Scalingo drains are syslog, Exercise 16); only transport
+  differs. *Not chosen:* client sends structured fields (duplicates parsing
+  on the client, diverges from what Scalingo sends).
+- **HTTP handlers live in `internal/api`.** The ingest handler is a
+  *producer*: a struct holding a send-only `chan<- logs.LogEntry`; `main.go`
+  makes the channel and gives the send side to the handler, the receive side
+  to `Processor.Run`. — HTTP concerns (decoding, status codes) stay out of
+  `ingest`.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

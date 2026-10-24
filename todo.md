@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 8 — Ingestion API (not started).
-**Next step:** design `POST /ingest`: what the request body looks like, validation, and where the handler sends entries.
+**Current:** Exercise 8 — Ingestion API (in progress).
+**Next step:** wire into `main.go`: make the channel, start `Processor.Run` in a goroutine, register `POST /ingest`; try it with curl.
 
 ---
 
@@ -70,6 +70,9 @@ Detail is added when an exercise starts.
   - [x] Processor / Consumer and ctx — decided: drain; only the producer watches `ctx` (see Decisions)
   - [x] Timeout with `context.WithTimeout` — `TestProcessor_Run_Timeout`: 50 ms deadline on 10M entries, `Run` returns in ~70 ms
 - [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. _JSON decoding, validation, handler design._
+  - [x] `api.Handler{Channel}.ServeHTTP` — decode `{"line"}`, `ParseLog(line, time.Now())`, send, 202; `TestHandler_ServeHTTP` (httptest)
+  - [x] Validation → 400 — table in `TestHandler_ServeHTTP` with raw bodies: invalid JSON, non-string, missing, empty `line`; nothing sent on 400
+  - [ ] Wire into `main.go` (channel + Processor + `POST /ingest`)
 - [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
 - [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._
 - [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._

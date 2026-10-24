@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 8 — Ingestion API (in progress).
-**Next step:** wire into `main.go`: make the channel, start `Processor.Run` in a goroutine, register `POST /ingest`; try it with curl.
+**Current:** Exercise 9 — Asynchronous ingestion (not started).
+**Next step:** decide what happens when the queue is full (block / reject / drop) — see "Scalingo log drains" findings in overview: accept fast, absorb bursts.
 
 ---
 
@@ -69,10 +69,10 @@ Detail is added when an exercise starts.
   - [x] `Producer(ctx, n)` — `select` on `ctx.Done()` vs send, `defer close(ch)` inside the goroutine; `TestProducer_Cancel` (cancel after 5 of 1,000,000); tests use `t.Context()`
   - [x] Processor / Consumer and ctx — decided: drain; only the producer watches `ctx` (see Decisions)
   - [x] Timeout with `context.WithTimeout` — `TestProcessor_Run_Timeout`: 50 ms deadline on 10M entries, `Run` returns in ~70 ms
-- [ ] **8. Ingestion API** — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. _JSON decoding, validation, handler design._
+- [x] **8. Ingestion API** ✅ — `POST /ingest`: decode, validate, create `LogEntry`, send to a channel. _JSON decoding, validation, handler design._
   - [x] `api.Handler{Channel}.ServeHTTP` — decode `{"line"}`, `ParseLog(line, time.Now())`, send, 202; `TestHandler_ServeHTTP` (httptest)
   - [x] Validation → 400 — table in `TestHandler_ServeHTTP` with raw bodies: invalid JSON, non-string, missing, empty `line`; nothing sent on 400
-  - [ ] Wire into `main.go` (channel + Processor + `POST /ingest`)
+  - [x] Wired into `main.go`: memory repo, channel, `go p.Run(ch)` (2 workers), `mux.Handle("POST /ingest", h)`; tried with `curl.exe` (202 valid, 400 broken)
 - [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
 - [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._
 - [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._

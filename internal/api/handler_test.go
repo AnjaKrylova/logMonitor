@@ -21,14 +21,16 @@ func TestHandler_ServeHTTP(t *testing.T) {
 		name      string
 		body      string // raw request body, sent as-is
 		wantCode  int
-		wantEntry bool // should an entry arrive on the channel
+		wantRaw   string // expected raw log line in the channel
+		wantEntry bool   // should an entry arrive on the channel
 	}{
 
-		{"valid line", string(validBody), 202, true},
-		{"invalid JSON", `not json`, 400, false},
-		{"line that isn't a string", `{"line": 42}`, 400, false},
-		{"line missing", `{}`, 400, false},
-		{"line empty", `{"line": ""}`, 400, false},
+		{"valid line", string(validBody), 202, routerLine, true},
+		{"line without timestamp", `{"line": "just some text"}`, 202, `just some text`, true},
+		{"invalid JSON", `not json`, 400, "", false},
+		{"line that isn't a string", `{"line": 42}`, 400, "", false},
+		{"line missing", `{}`, 400, "", false},
+		{"line empty", `{"line": ""}`, 400, "", false},
 	}
 	for _, d := range data {
 		t.Run(d.name, func(t *testing.T) {
@@ -54,8 +56,8 @@ func TestHandler_ServeHTTP(t *testing.T) {
 				if len(in) != 1 {
 					t.Fatalf("got %d entries, want %d", len(in), 1)
 				}
-				if in[0].Raw != routerLine {
-					t.Errorf("got %q, want %q", in[0].Raw, routerLine)
+				if in[0].Raw != d.wantRaw {
+					t.Errorf("got %q, want %q", in[0].Raw, d.wantRaw)
 				}
 			} else {
 				if len(in) != 0 {

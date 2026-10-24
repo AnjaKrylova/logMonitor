@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 9 — Asynchronous ingestion (in progress).
-**Next step:** handler: try to send (`select` + `default`); if full, `slog.Error` then blocking send. Test: buffer full + no reader → handler waits, completes with 202 once a value is read. Then `main.go` buffer 10_000.
+**Next step:** queue full → `slog.Error` then blocking send (test: full buffer of 1, handler in a goroutine, 202 after one read). Last step of Exercise 9.
 
 ---
 
@@ -75,9 +75,9 @@ Detail is added when an exercise starts.
   - [x] Wired into `main.go`: memory repo, channel, `go p.Run(ch)` (2 workers), `mux.Handle("POST /ingest", h)`; tried with `curl.exe` (202 valid, 400 broken)
 - [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
   - [ ] Queue full → `slog.Error`, then blocking send; test: full buffer, handler waits, 202 once a value is read
-  - [ ] `main.go`: buffer 10_000
+  - [x] `main.go`: buffer 10_000
   - [x] `ParseLog` returns `(LogEntry, error)` — entry always usable, error passed through from `ParseEnvelope` (no timestamp, empty line); `TestParseLog` has `wantErr`
-  - [ ] Logging in the handler: `slog.Warn` on every 400 (with the reason); `slog.Warn` when `ParseLog` returns an error (still send the entry)
+  - [x] Logging in the handler: `slog.Warn` on each 400 and on a parse error; a line without timestamp is still sent (202) — table row with `wantRaw`
 - [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._
 - [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._ Logging: `slog.Info` when a stream starts/stops; `slog.Error` when a stream ends unexpectedly (with the app name).
 - [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.

@@ -12,7 +12,7 @@ func Consumer(ch <-chan logs.LogEntry, r storage.LogRepository) int {
 	for e := range ch {
 		err := r.Save(e)
 		if err != nil {
-			slog.Error("Save failed", "err", err)
+			slog.Error("Save failed", "error", err)
 			continue
 		}
 		count++

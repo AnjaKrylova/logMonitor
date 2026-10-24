@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,14 +21,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var body Request
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
+		slog.Warn("failed to decode request body", "error", err)
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 	if body.Line == "" {
+		slog.Warn("line is required")
 		http.Error(w, "line is required", http.StatusBadRequest)
 		return
 	}
-	entry, _ := logs.ParseLog(body.Line, time.Now())
+	entry, err := logs.ParseLog(body.Line, time.Now())
+	if err != nil {
+		slog.Warn("failed to parse log line", "error", err)
+	}
 	h.Channel <- entry
 	w.WriteHeader(http.StatusAccepted)
 }

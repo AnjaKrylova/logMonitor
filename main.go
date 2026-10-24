@@ -41,7 +41,7 @@ func main() {
 	})
 
 	var repo storage.LogRepository = &storage.MemoryLogRepository{}
-	ch := make(chan logs.LogEntry)
+	ch := make(chan logs.LogEntry, 10_000)
 	p := ingest.Processor{
 		NumberOfWorkers: 2,
 		Repository:      repo,

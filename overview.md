@@ -138,9 +138,17 @@ Each entry: what was decided — why — the alternative not chosen.
 - **No line is dropped.** A line without a timestamp is stored unstructured:
   `Raw`, `LevelUnknown`, fallback timestamp.
 - **The fallback timestamp is the receive time, passed by the caller:**
-  `ParseLog(rawLine string, receivedAt time.Time) LogEntry`, no `error`. —
-  Deterministic tests; re-parsing old lines from `Raw` keeps their original
-  time. *Not chosen:* `time.Now()` inside the parser; leaving it at zero.
+  `ParseLog(rawLine string, receivedAt time.Time)`. — Deterministic tests;
+  re-parsing old lines from `Raw` keeps their original time. *Not chosen:*
+  `time.Now()` inside the parser; leaving it at zero.
+- **`ParseLog` returns `(LogEntry, error)` (changed 2026-10-24; was: no
+  error).** The entry is always usable (`Raw` set, fallback timestamp) even
+  when `err != nil`; the doc comment says so. The error is set only when the
+  envelope fails (no timestamp), not for plain-text app lines or router lines
+  without status. — Callers (handler) can `slog.Warn` the reason instead of
+  guessing from `LevelUnknown`; consistent with `ParseEnvelope` and
+  `ParseLogLevel`. *Not chosen:* keep swallowing the error; a `ParseError`
+  field on `LogEntry` (possible later, to query failed lines).
 - **`ParseLogLevel` returns `LevelUnknown` together with an error.** — Callers
   get a usable value and still learn what was wrong.
 - **`LevelUnknown`** for missing or unrecognised levels. — Keeps malformed
@@ -215,6 +223,19 @@ Each entry: what was decided — why — the alternative not chosen.
   makes the channel and gives the send side to the handler, the receive side
   to `Processor.Run`. — HTTP concerns (decoding, status codes) stay out of
   `ingest`.
+- **Ingestion queue: buffered channel of 10,000; when full, log an error and
+  then block until there is room.** — Absorbs bursts so Scalingo gets a fast
+  202 (rejects/timeouts risk quarantine, see findings above); nothing is
+  dropped; the error log shows in production how often the queue fills, to
+  decide on scaling. *Not chosen:* drop (loses logs), reject with 503
+  (Scalingo doesn't document retries), block silently (no visibility).
+- **Logging with `log/slog`, at the edges only** (handlers, workers,
+  sources, `main`); library packages like `logs` and `storage` return
+  information/errors and never log. Levels: **Error** = something in our
+  service is broken (save failed, queue full, Redis down); **Warn** =
+  unusual but handled (bad client request, line without timestamp, retry);
+  **Info** = normal lifecycle (start, stop, shutdown steps). — Callers have
+  the context to decide; libraries stay testable and quiet.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

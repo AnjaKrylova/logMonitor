@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 9 — Asynchronous ingestion (not started).
-**Next step:** decide what happens when the queue is full (block / reject / drop) — see "Scalingo log drains" findings in overview: accept fast, absorb bursts.
+**Current:** Exercise 9 — Asynchronous ingestion (in progress).
+**Next step:** handler: try to send (`select` + `default`); if full, `slog.Error` then blocking send. Test: buffer full + no reader → handler waits, completes with 202 once a value is read. Then `main.go` buffer 10_000.
 
 ---
 
@@ -74,14 +74,18 @@ Detail is added when an exercise starts.
   - [x] Validation → 400 — table in `TestHandler_ServeHTTP` with raw bodies: invalid JSON, non-string, missing, empty `line`; nothing sent on 400
   - [x] Wired into `main.go`: memory repo, channel, `go p.Run(ch)` (2 workers), `mux.Handle("POST /ingest", h)`; tried with `curl.exe` (202 valid, 400 broken)
 - [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
+  - [ ] Queue full → `slog.Error`, then blocking send; test: full buffer, handler waits, 202 once a value is read
+  - [ ] `main.go`: buffer 10_000
+  - [x] `ParseLog` returns `(LogEntry, error)` — entry always usable, error passed through from `ParseEnvelope` (no timestamp, empty line); `TestParseLog` has `wantErr`
+  - [ ] Logging in the handler: `slog.Warn` on every 400 (with the reason); `slog.Warn` when `ParseLog` returns an error (still send the entry)
 - [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._
-- [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._
-- [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._
+- [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._ Logging: `slog.Info` when a stream starts/stops; `slog.Error` when a stream ends unexpectedly (with the app name).
+- [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
 - [ ] **13. Aggregation** — hourly buckets, including zero-count hours. _Time bucketing, maps._
-- [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`.
-- [ ] **15. Redis** — `RedisLogRepository` behind the same interface. _External dependencies, integration tests._
-- [ ] **16. Scalingo integration** — `ScalingoLogSource`; investigate drains vs streaming first. App name comes from the source.
-- [ ] **17. Retry & backoff** — exponential backoff with a max delay. _`time.NewTimer`, `select` with `ctx.Done()`._
-- [ ] **18. Graceful shutdown** — SIGTERM → stop intake → drain queue → close storage. _`signal.NotifyContext`._
+- [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`. Logging: same as `/logs` (`Warn` on 400, `Error` on 500).
+- [ ] **15. Redis** — `RedisLogRepository` behind the same interface. _External dependencies, integration tests._ Logging: `slog.Error` when Redis is unreachable; return errors from the repository, log them in callers (consumer, handlers).
+- [ ] **16. Scalingo integration** — `ScalingoLogSource`; investigate drains vs streaming first. App name comes from the source. Logging: `slog.Warn` on malformed syslog frames; `slog.Error` when the listener fails.
+- [ ] **17. Retry & backoff** — exponential backoff with a max delay. _`time.NewTimer`, `select` with `ctx.Done()`._ Logging: `slog.Warn` on each retry (attempt, delay); `slog.Error` when giving up.
+- [ ] **18. Graceful shutdown** — SIGTERM → stop intake → drain queue → close storage. _`signal.NotifyContext`._ Logging: `slog.Info` for each shutdown step; `slog.Error` if draining times out or storage fails to close.
 - [ ] **19. Time handling** — define "today" (Europe/Copenhagen), store UTC; test midnight, DST, month/year boundaries.
 - [ ] **20. Testing review** — fill gaps; `httptest`, `-race`, coverage, benchmarks, integration tests.

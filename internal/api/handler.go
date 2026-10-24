@@ -27,7 +27,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "line is required", http.StatusBadRequest)
 		return
 	}
-	entry := logs.ParseLog(body.Line, time.Now())
+	entry, _ := logs.ParseLog(body.Line, time.Now())
 	h.Channel <- entry
 	w.WriteHeader(http.StatusAccepted)
 }

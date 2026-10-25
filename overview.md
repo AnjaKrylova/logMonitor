@@ -236,6 +236,11 @@ Each entry: what was decided — why — the alternative not chosen.
   unusual but handled (bad client request, line without timestamp, retry);
   **Info** = normal lifecycle (start, stop, shutdown steps). — Callers have
   the context to decide; libraries stay testable and quiet.
+- **`LogSource` yields raw lines: `Stream(ctx) <-chan string`** (generator:
+  closes when done or cancelled). A small parse step turns lines into
+  entries with `ParseLog` and sends them to the same entries channel the
+  HTTP handler uses. — Scalingo sends raw lines; parsing stays in one place.
+  *Not chosen:* sources emit `LogEntry` (each source would parse itself).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 9 — Asynchronous ingestion (in progress).
-**Next step:** queue full → `slog.Error` then blocking send (test: full buffer of 1, handler in a goroutine, 202 after one read). Last step of Exercise 9.
+**Current:** Exercise 10 — Fake Scalingo source (not started).
+**Next step:** design a `LogSource` interface; `FakeLogSource` producing realistic Scalingo lines (router + app) into the pipeline.
 
 ---
 
@@ -73,8 +73,8 @@ Detail is added when an exercise starts.
   - [x] `api.Handler{Channel}.ServeHTTP` — decode `{"line"}`, `ParseLog(line, time.Now())`, send, 202; `TestHandler_ServeHTTP` (httptest)
   - [x] Validation → 400 — table in `TestHandler_ServeHTTP` with raw bodies: invalid JSON, non-string, missing, empty `line`; nothing sent on 400
   - [x] Wired into `main.go`: memory repo, channel, `go p.Run(ch)` (2 workers), `mux.Handle("POST /ingest", h)`; tried with `curl.exe` (202 valid, 400 broken)
-- [ ] **9. Asynchronous ingestion** — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
-  - [ ] Queue full → `slog.Error`, then blocking send; test: full buffer, handler waits, 202 once a value is read
+- [x] **9. Asynchronous ingestion** ✅ — `Ingestor` with a queue; decide what happens when the queue is full (block / reject / drop). _Buffered channels, design trade-offs._
+  - [x] Queue full → `slog.Error`, then blocking send (`select` + `default`); `TestHandler_ServeHTTP_QueueFull` uses `testing/synctest` (`synctest.Wait` before making room) so the handler really meets a full queue
   - [x] `main.go`: buffer 10_000
   - [x] `ParseLog` returns `(LogEntry, error)` — entry always usable, error passed through from `ParseEnvelope` (no timestamp, empty line); `TestParseLog` has `wantErr`
   - [x] Logging in the handler: `slog.Warn` on each 400 and on a parse error; a line without timestamp is still sent (202) — table row with `wantRaw`

@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"logmonitor/internal/logs"
 )
@@ -66,4 +68,53 @@ func TestHandler_ServeHTTP(t *testing.T) {
 			}
 		})
 	}
+}
+
+// When the queue is full, ServeHTTP blocks until there is room, then
+// delivers the entry and answers 202: nothing is dropped.
+func TestHandler_ServeHTTP_QueueFull(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		validBody, err := json.Marshal(Request{Line: routerLine})
+		if err != nil {
+			t.Fatalf("Marshal failed: %v", err)
+		}
+
+		// Fill the queue so the handler's send has to wait.
+		ch := make(chan logs.LogEntry, 1)
+		filler := logs.LogEntry{Message: "filler"}
+		ch <- filler
+
+		h := &Handler{ch}
+		body := strings.NewReader(string(validBody))
+		req := httptest.NewRequest(http.MethodPost, "/ingest", body)
+		w := httptest.NewRecorder()
+
+		// The handler blocks on the full queue, so run it in the background;
+		// done is closed when it returns.
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			h.ServeHTTP(w, req)
+		}()
+
+		// Make room: removing the filler unblocks the handler.
+		synctest.Wait()
+		<-ch
+
+		// Wait for the handler to finish, but fail instead of hanging.
+		timeout := time.Second
+		select {
+		case <-done:
+		case <-time.After(timeout):
+			t.Fatalf("ServeHTTP did not return within %v", timeout)
+		}
+
+		if w.Code != http.StatusAccepted {
+			t.Errorf("status = %d, want %d", w.Code, http.StatusAccepted)
+		}
+		delivered := <-ch
+		if delivered.Raw != routerLine {
+			t.Errorf("delivered Raw = %q, want %q", delivered.Raw, routerLine)
+		}
+	})
 }

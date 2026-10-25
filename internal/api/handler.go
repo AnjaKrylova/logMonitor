@@ -34,6 +34,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Warn("failed to parse log line", "error", err)
 	}
-	h.Channel <- entry
+
+	select {
+	case h.Channel <- entry:
+	default:
+		slog.Error("queue is full, waiting")
+		h.Channel <- entry
+	}
+
 	w.WriteHeader(http.StatusAccepted)
 }

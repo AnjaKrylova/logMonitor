@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 11 — Multiple applications (not started).
-**Next step:** design `ApplicationRegistry`: 70 concurrent sources (one per app) into the one `entries` channel; app name comes from the source.
+**Next step:** Exercise 11 (reshaped) — load simulation (70 fake apps → `POST /ingest`) and where the app name comes from.
 
 ---
 
@@ -82,7 +82,10 @@ Detail is added when an exercise starts.
   - [x] `LogSource` + `FakeLogSource{NumLines}.Stream(ctx)`: alternating router (logfmt) + app (JSON) lines in Scalingo format; `TestFakeLogSource_Stream` checks count, no parse error, no `LevelUnknown`
   - [x] `ingest.Parse(in <-chan string, out chan<- logs.LogEntry)` — `ParseLog` each line, `slog.Warn` on error and still send, never closes `out`; `TestParse`
   - [x] Wired into `main.go`: `FakeLogSource{5}.Stream` → `go ingest.Parse(lines, entries)`; `entries` (10_000) shared by Parse, Processor and the HTTP handler
-- [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._ Logging: `slog.Info` when a stream starts/stops; `slog.Error` when a stream ends unexpectedly (with the app name).
+- [ ] **11. Multiple applications (reshaped 2026-10-26)** — all 70 apps push to one endpoint (Scalingo drains), so there are no per-app streams to manage. _Fan-in, load simulation._
+  - [x] Bug from real lines: `CEST[web-1]` (no space) lost container/app/level — `parseTimestamp` now cuts a glued zone; test data switched to the real format
+  - [ ] Load simulation: 70 fake apps sending lines concurrently to `POST /ingest`; does the queue ever fill?
+  - [ ] App name: find where Scalingo's drain format carries it; decide how an entry gets `App`
 - [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
 - [ ] **13. Aggregation** — hourly buckets, including zero-count hours. _Time bucketing, maps._
 - [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`. Logging: same as `/logs` (`Warn` on 400, `Error` on 500).
@@ -92,3 +95,4 @@ Detail is added when an exercise starts.
 - [ ] **18. Graceful shutdown** — SIGTERM → stop intake → drain queue → close storage. _`signal.NotifyContext`._ Logging: `slog.Info` for each shutdown step; `slog.Error` if draining times out or storage fails to close.
 - [ ] **19. Time handling** — define "today" (Europe/Copenhagen), store UTC; test midnight, DST, month/year boundaries.
 - [ ] **20. Testing review** — fill gaps; `httptest`, `-race`, coverage, benchmarks, integration tests.
+- [ ] **Later (optional): `ApplicationRegistry` for pull streams** — start/stop several `LogSource` streams (one per app, fan-in to `entries`); `slog.Info` on start/stop, `slog.Error` when a stream ends unexpectedly. Only if a pull source is ever needed.

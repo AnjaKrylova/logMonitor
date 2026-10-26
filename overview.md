@@ -125,6 +125,9 @@ Each entry: what was decided — why — the alternative not chosen.
   parsed; the zone word is skipped only if it is 3–4 uppercase letters. —
   Finding `[` first broke on brackets inside payloads. *Accepted trade-off:*
   a short uppercase word after the offset (e.g. `WARN`) is taken as a zone.
+  *Changed 2026-10-26:* real lines glue the container to the zone
+  (`CEST[web-1]`, no space); the zone check splits the first word at `[`
+  and keeps `[container]` in `rest`. Found by parsing real drain lines.
 - **Every entry leaves `ParseLog` in UTC** — one choke point converts the
   timestamp on every path; stage parsers may return local times.
   `TestParseLog` checks `Location() == time.UTC` in every row. — Storage and
@@ -241,6 +244,11 @@ Each entry: what was decided — why — the alternative not chosen.
   entries with `ParseLog` and sends them to the same entries channel the
   HTTP handler uses. — Scalingo sends raw lines; parsing stays in one place.
   *Not chosen:* sources emit `LogEntry` (each source would parse itself).
+- **Push model: all 70 Scalingo apps drain to one endpoint** (already set
+  up in production). Fan-in happens at the endpoint (one goroutine per
+  request/connection, all into `entries`), so Exercise 11 became a load
+  simulation plus "where does the app name come from". *Deferred:* an
+  `ApplicationRegistry` for pull streams (optional, only if ever needed).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

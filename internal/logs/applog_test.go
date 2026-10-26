@@ -10,7 +10,7 @@ import (
 var payloadTime = time.UnixMilli(1757329978852)
 
 // Prefix of a real Scalingo line for container web-1.
-const appLinePrefix = timePrefix + " [web-1] "
+const appLinePrefix = timePrefix + "[web-1] "
 
 // Real sample from a Scalingo app container (stack trace shortened).
 const appLogErrorPayload = `{"app":{"name":"demo-app","version":"3.4.2"},"data":{"error":{"code":"FETCH_CLIENT_ERROR_REQUEST_TIMEOUT","message":"Request aborted after 5000 milliseconds","stack":"Error: Request aborted after 5000 milliseconds\n at ClientRequest.parseResponseError (/app/node_modules/@hedia/fetch/src/index.ts:405:10)"}},"level":"error","message":"Error processing request","origin":{"column":30,"file":"src/main.ts","line":158},"params":[],"timestamp":1757329978852}`

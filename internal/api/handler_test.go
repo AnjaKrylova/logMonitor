@@ -12,7 +12,7 @@ import (
 	"logmonitor/internal/logs"
 )
 
-var routerLine = `2026-06-24 15:02:19.446989072 +0200 CEST [router] method=GET path="/password" status=200 duration=0.030s`
+var routerLine = `2026-06-24 15:02:19.446989072 +0200 CEST[router] method=GET path="/password" status=200 duration=0.030s`
 
 func TestHandler_ServeHTTP(t *testing.T) {
 	validBody, err := json.Marshal(Request{Line: routerLine})

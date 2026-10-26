@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const routerLinePrefix = timePrefix + " [router] "
+const routerLinePrefix = timePrefix + "[router] "
 
 // routerEnvelope builds the Envelope that ParseEnvelope would return for an
 // router line carrying the given payload.

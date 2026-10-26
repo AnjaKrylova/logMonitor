@@ -43,9 +43,18 @@ func parseTimestamp(line string) (time.Time, string, error) {
 	date, rest, _ := strings.Cut(line, " ")
 	clock, rest, _ := strings.Cut(rest, " ")
 	offset, rest, _ := strings.Cut(rest, " ")
-	word, after, _ := strings.Cut(rest, " ")
+	wordContainer, after, _ := strings.Cut(rest, " ")
+	word, container, _ := strings.Cut(wordContainer, "[")
+	// The zone word is optional; when present it is always cut off.
 	if isTimeZone(word) {
-		rest = after
+		if container == "" {
+			// "CEST hello": zone and the separating space go.
+			rest = after
+		} else {
+			// "CEST[web-1] hello" (real Scalingo format): only the zone goes,
+			// so rest starts with "[container]" for ParseEnvelope.
+			rest = strings.TrimPrefix(rest, word)
+		}
 	}
 
 	rawTime := strings.Join([]string{date, clock, offset}, " ")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -41,19 +42,26 @@ func main() {
 	})
 
 	var repo storage.LogRepository = &storage.MemoryLogRepository{}
-	ch := make(chan logs.LogEntry, 10_000)
+
+	fls := ingest.FakeLogSource{
+		NumLines: 5,
+	}
+	lines := fls.Stream(context.Background())
+
+	entries := make(chan logs.LogEntry, 10_000)
+	go ingest.Parse(lines, entries)
+
 	p := ingest.Processor{
 		NumberOfWorkers: 2,
 		Repository:      repo,
 	}
-	go p.Run(ch)
-	h := &api.Handler{Channel: ch}
+	go p.Run(entries)
 
+	h := &api.Handler{Channel: entries}
 	mux.Handle("POST /ingest", h)
 
 	err := s.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
-
 }

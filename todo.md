@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 10 — Fake Scalingo source (in progress).
-**Next step:** parse step — read lines from a `LogSource`, `ParseLog` each, send entries to the entries channel (red test first).
+**Current:** Exercise 11 — Multiple applications (not started).
+**Next step:** design `ApplicationRegistry`: 70 concurrent sources (one per app) into the one `entries` channel; app name comes from the source.
 
 ---
 
@@ -78,10 +78,10 @@ Detail is added when an exercise starts.
   - [x] `main.go`: buffer 10_000
   - [x] `ParseLog` returns `(LogEntry, error)` — entry always usable, error passed through from `ParseEnvelope` (no timestamp, empty line); `TestParseLog` has `wantErr`
   - [x] Logging in the handler: `slog.Warn` on each 400 and on a parse error; a line without timestamp is still sent (202) — table row with `wantRaw`
-- [ ] **10. Fake Scalingo source** — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._
+- [x] **10. Fake Scalingo source** ✅ — `LogSource` interface + `FakeLogSource` producing realistic lines. _Interfaces, generators._
   - [x] `LogSource` + `FakeLogSource{NumLines}.Stream(ctx)`: alternating router (logfmt) + app (JSON) lines in Scalingo format; `TestFakeLogSource_Stream` checks count, no parse error, no `LevelUnknown`
-  - [ ] Parse step: lines → `ParseLog` → entries channel
-  - [ ] Wire into `main.go` next to the HTTP handler
+  - [x] `ingest.Parse(in <-chan string, out chan<- logs.LogEntry)` — `ParseLog` each line, `slog.Warn` on error and still send, never closes `out`; `TestParse`
+  - [x] Wired into `main.go`: `FakeLogSource{5}.Stream` → `go ingest.Parse(lines, entries)`; `entries` (10_000) shared by Parse, Processor and the HTTP handler
 - [ ] **11. Multiple applications** — `ApplicationRegistry`, 70 concurrent streams into one channel. _Concurrent producers, lifecycle._ Logging: `slog.Info` when a stream starts/stops; `slog.Error` when a stream ends unexpectedly (with the app name).
 - [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
 - [ ] **13. Aggregation** — hourly buckets, including zero-count hours. _Time bucketing, maps._

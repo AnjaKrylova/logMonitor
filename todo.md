@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 11 — Multiple applications (not started).
-**Next step:** Exercise 11 (reshaped) — load simulation (70 fake apps → `POST /ingest`) and where the app name comes from.
+**Next step:** warm-up (15 min): rewrite `ParseEnvelope` body from `TestParseEnvelope` (mentor clears the body first). Then Exercise 11 load simulation.
 
 ---
 

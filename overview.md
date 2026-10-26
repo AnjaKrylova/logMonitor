@@ -121,21 +121,22 @@ Each entry: what was decided — why — the alternative not chosen.
 - **`Raw` is captured on the envelope and always set**, even when parsing
   fails; each stage-2 parser copies it. — Every parser returns a complete,
   testable entry. *Not chosen:* setting `Raw` only in `ParseLog`.
-- **The envelope parses the timestamp first.** Date, clock and offset are
-  parsed; the zone word is skipped only if it is 3–4 uppercase letters. —
-  Finding `[` first broke on brackets inside payloads. *Accepted trade-off:*
-  a short uppercase word after the offset (e.g. `WARN`) is taken as a zone.
-  *Changed 2026-10-26:* real lines glue the container to the zone
-  (`CEST[web-1]`, no space); the zone check splits the first word at `[`
-  and keeps `[container]` in `rest`. Found by parsing real drain lines.
+- **The envelope follows the real format only** (changed 2026-10-26, after
+  seeing real drain lines): `date clock offset ZONE[container] payload`.
+  `parseTimestamp` reads date, clock, offset; everything up to the first `[`
+  is the zone (skipped, may be followed by a space: `CEST[web-1]`,
+  `utc [worker-1]`), then the container up to `]`, then the payload.
+  Anything else (no container, `[` only inside the payload, split seconds
+  after a crash) → envelope with only `Raw` + an error; callers still store
+  it. — Simpler than guessing formats. *Not chosen (old version):* optional
+  zone detected by an uppercase heuristic (`isTimeZone`, `WARN` taken as a
+  zone) and an optional container.
 - **Every entry leaves `ParseLog` in UTC** — one choke point converts the
   timestamp on every path; stage parsers may return local times.
   `TestParseLog` checks `Location() == time.UTC` in every row. — Storage and
   hourly buckets need one location, `reflect.DeepEqual` compares the location,
   and a rule enforced at the boundary cannot be forgotten at call sites.
   *Not chosen:* `.UTC()` in each parser (`parseTimestamp`, `ParseAppLog`).
-- **`[container]` is optional.** A `[` without `]` is not handled. — Not
-  seen in real Scalingo lines; `Raw` keeps the line.
 - **No timestamp → envelope with only `Raw`, plus an error.** Nothing in such
   a line is trusted. — Real Scalingo lines always have a timestamp.
 - **No line is dropped.** A line without a timestamp is stored unstructured:

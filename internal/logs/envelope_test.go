@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Timestamp at the start of every Scalingo line, without and with the zone.
-// Real lines glue the container to the zone: "... +0200 CEST[web-1] ...".
+// Real Scalingo lines: "date clock offset ZONE[container] payload", usually
+// with the container glued to the zone: "... +0200 CEST[web-1] ...".
 const (
 	timeNoZone = "2025-09-08 13:12:58.867176204 +0200"
 	timePrefix = timeNoZone + " CEST"
@@ -36,6 +36,16 @@ func TestParseEnvelope(t *testing.T) {
 			Container: "router",
 			Payload:   routerPayload,
 		}, false},
+		{"winter time (CET)", "2026-10-26 10:00:00.123456789 +0100 CET[web-1] hello", Envelope{
+			Timestamp: time.Date(2026, 10, 26, 9, 0, 0, 123456789, time.UTC),
+			Container: "web-1",
+			Payload:   "hello",
+		}, false},
+		{"space before container, lowercase zone", "2026-10-25 15:49:50.553980154 +0000 utc [worker-1] /app/.env not found", Envelope{
+			Timestamp: time.Date(2026, 10, 25, 15, 49, 50, 553980154, time.UTC),
+			Container: "worker-1",
+			Payload:   "/app/.env not found",
+		}, false},
 		{"brackets inside payload belong to payload", appLinePrefix + bracketsPayload, Envelope{
 			Timestamp: timePrefixParsed,
 			Container: "web-1",
@@ -50,31 +60,14 @@ func TestParseEnvelope(t *testing.T) {
 			Timestamp: timePrefixParsed,
 			Container: "web-1",
 		}, false},
-		{"no zone abbreviation", timeNoZone + " [web-1] hello", Envelope{
-			Timestamp: timePrefixParsed,
-			Container: "web-1",
-			Payload:   "hello",
-		}, false},
-		{"no container", timePrefix + " some text", Envelope{
-			Timestamp: timePrefixParsed,
-			Payload:   "some text",
-		}, false},
-		{"no container, payload has brackets", timePrefix + ` {"params":["a"]}`, Envelope{
-			Timestamp: timePrefixParsed,
-			Payload:   `{"params":["a"]}`,
-		}, false},
-		{"timestamp only", timePrefix, Envelope{
-			Timestamp: timePrefixParsed,
-		}, false},
-		{"no space after container", timePrefix + "[web-1]hello", Envelope{
-			Timestamp: timePrefixParsed,
-			Container: "web-1",
-			Payload:   "hello",
-		}, false},
-		// Without a parsable timestamp nothing in the line is trusted:
-		// ParseEnvelope returns an envelope with only Raw set, together with
-		// an error. Real Scalingo lines always carry a timestamp, so this is
-		// a safety net, not a path that needs structured parsing.
+
+		// A line that does not match the real format keeps only Raw and
+		// comes back with an error; callers still store it (nothing is lost).
+		{"no container", timePrefix + " some text", Envelope{}, true},
+		{"no container, payload has brackets", timePrefix + " error: see [docs]", Envelope{}, true},
+		{"missing ] after container", timePrefix + "[web-1 hello", Envelope{}, true},
+		{"timestamp only", timePrefix, Envelope{}, true},
+		{"split fractional seconds (seen after a crash)", "2026-10-25 15:49:50.55398 0154 +0000 utc [worker-1] x", Envelope{}, true},
 		{"empty line", ``, Envelope{}, true},
 		{"bad timestamp", `yesterday [web-1] hello`, Envelope{}, true},
 		{"date without time", `2025-09-08 [web-1] hello`, Envelope{}, true},
@@ -112,9 +105,9 @@ func TestParseEnvelope(t *testing.T) {
 	}
 }
 
-// parseTimestamp reads "date clock offset [ZONE]" from the start of a line.
-// rest is what follows, with the single separating space removed.
-// On error, t is zero and rest is "".
+// parseTimestamp reads "date clock offset" from the start of a line.
+// rest is everything after the offset (zone, container and payload), with
+// the single separating space removed. On error, t is zero and rest is "".
 func TestParseTimestamp(t *testing.T) {
 	data := []struct {
 		name     string
@@ -123,35 +116,23 @@ func TestParseTimestamp(t *testing.T) {
 		wantRest string
 		wantErr  bool
 	}{
-		{"zone glued to container", timePrefix + "[web-1] hello", timePrefixParsed, "[web-1] hello", false},
-		{"no zone abbreviation", timeNoZone + " [web-1] hello", timePrefixParsed, "[web-1] hello", false},
-		{"timestamp with zone only", timePrefix, timePrefixParsed, "", false},
-		{"timestamp without zone only", timeNoZone, timePrefixParsed, "", false},
-		{"UTC zone", "2025-09-08 11:12:58.867176204 +0000 UTC hello", timePrefixParsed, "hello", false},
-		{"fewer fractional digits", "2025-09-08 13:12:58.8 +0200 CEST x",
-			time.Date(2025, 9, 8, 11, 12, 58, 800000000, time.UTC), "x", false},
-		{"no fractional seconds", "2025-09-08 13:12:58 +0200 CEST x",
-			time.Date(2025, 9, 8, 11, 12, 58, 0, time.UTC), "x", false},
-		{"brackets in payload are not a container", timePrefix + ` {"params":["a"]}`, timePrefixParsed, `{"params":["a"]}`, false},
-
-		// The zone word is skipped only when it looks like one: 3-5 uppercase
-		// letters, standing alone or directly followed by "[container]".
-		{"text glued to zone is not a zone", timePrefix + "abc", timePrefixParsed, "CESTabc", false},
-		{"lowercase word is not a zone", timeNoZone + " hello world", timePrefixParsed, "hello world", false},
-		{"long uppercase word is not a zone", timeNoZone + " WARNING disk full", timePrefixParsed, "WARNING disk full", false},
-		// Accepted trade-off: a short uppercase word right after the offset is
-		// indistinguishable from a zone and is skipped. Raw still keeps it.
-		{"short uppercase word is taken as zone", timeNoZone + " WARN disk full", timePrefixParsed, "disk full", false},
-		{"lowercase short word is not a zone", timeNoZone + " info disk full", timePrefixParsed, "info disk full", false},
+		{"real prefix", timePrefix + "[web-1] hello", timePrefixParsed, "CEST[web-1] hello", false},
+		{"winter time (CET)", "2026-10-26 10:00:00.123456789 +0100 CET[web-1] x",
+			time.Date(2026, 10, 26, 9, 0, 0, 123456789, time.UTC), "CET[web-1] x", false},
+		{"timestamp only", timeNoZone, timePrefixParsed, "", false},
+		{"fewer fractional digits", "2025-09-08 13:12:58.8 +0200 CEST[web-1] x",
+			time.Date(2025, 9, 8, 11, 12, 58, 800000000, time.UTC), "CEST[web-1] x", false},
+		{"no fractional seconds", "2025-09-08 13:12:58 +0200 CEST[web-1] x",
+			time.Date(2025, 9, 8, 11, 12, 58, 0, time.UTC), "CEST[web-1] x", false},
 
 		{"empty line", ``, time.Time{}, "", true},
 		{"no timestamp", `[web-1] hello`, time.Time{}, "", true},
 		{"word instead of date", `yesterday [web-1] hello`, time.Time{}, "", true},
 		{"date without clock", `2025-09-08 [web-1] hello`, time.Time{}, "", true},
 		{"missing offset", "2025-09-08 13:12:58.867176204", time.Time{}, "", true},
-		{"zone instead of offset", "2025-09-08 13:12:58.867176204 CEST [web-1] hello", time.Time{}, "", true},
-		{"impossible date", "2025-13-45 13:12:58 +0200 CEST x", time.Time{}, "", true},
-		{"leading whitespace", "  " + timePrefix + " x", time.Time{}, "", true},
+		{"zone instead of offset", "2025-09-08 13:12:58.867176204 CEST[web-1] hello", time.Time{}, "", true},
+		{"impossible date", "2025-13-45 13:12:58 +0200 CEST[web-1] x", time.Time{}, "", true},
+		{"leading whitespace", "  " + timePrefix + "[web-1] x", time.Time{}, "", true},
 	}
 
 	for _, d := range data {

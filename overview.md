@@ -250,6 +250,13 @@ Each entry: what was decided — why — the alternative not chosen.
   request/connection, all into `entries`), so Exercise 11 became a load
   simulation plus "where does the app name come from". *Deferred:* an
   `ApplicationRegistry` for pull streams (optional, only if ever needed).
+- **`App` only from the app payload; router lines get `Host`** (2026-10-27).
+  Real router and plain-text lines carry no app name; `host=` is a hostname,
+  not an app, so it becomes its own `LogEntry.Host` field. Router lines are
+  **kept**, although production monitoring ignored them so far: `status` and
+  `duration` are the best input for error-rate and latency stats. —
+  Revisit if the load simulation shows they cost too much.
+  *Not chosen:* `host` as `App`; dropping router lines at ingestion.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

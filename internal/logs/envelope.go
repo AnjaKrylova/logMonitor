@@ -21,29 +21,29 @@ type Envelope struct {
 // A line that does not match this shape returns an envelope with only Raw set,
 // together with an error, so callers can still store it.
 func ParseEnvelope(line string) (Envelope, error) {
-	fallback := Envelope{Raw: line}
-
-	t, rest, err := parseTimestamp(line)
+	fallbackEnvelope := Envelope{Raw: line}
+	timestamp, rest, err := parseTimestamp(line)
 	if err != nil {
-		return fallback, err
+		return fallbackEnvelope, fmt.Errorf("parse envelope: %w", err)
 	}
-
-	zone, rest, found := strings.Cut(rest, "[")
+	before, after, found := strings.Cut(rest, "[")
 	if !found {
-		return fallback, errors.New("missing [container]")
+		return fallbackEnvelope, errors.New("parse envelope: missing container")
 	}
-	// The zone is a single word; a space inside means the "[" belongs to
-	// the payload of a line without a container.
-	if strings.Contains(strings.TrimSpace(zone), " ") {
-		return fallback, errors.New("missing [container]")
+	if len(strings.Fields(before)) > 1 {
+		return fallbackEnvelope, errors.New("parse envelope: unexpected text before container")
 	}
-
-	container, payload, found := strings.Cut(rest, "]")
+	container, payload, found := strings.Cut(after, "]")
 	if !found {
-		return fallback, errors.New("missing ] after container")
+		return fallbackEnvelope, errors.New("parse envelope: missing closing bracket for container")
 	}
 
-	return Envelope{Timestamp: t, Container: container, Payload: strings.TrimSpace(payload), Raw: line}, nil
+	return Envelope{
+		Timestamp: timestamp,
+		Container: container,
+		Payload:   strings.TrimSpace(payload),
+		Raw:       line,
+	}, nil
 }
 
 // parseTimestamp reads "date clock offset" from the start of a line and

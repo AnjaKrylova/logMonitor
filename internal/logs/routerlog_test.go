@@ -25,8 +25,8 @@ func TestParseRouterLog(t *testing.T) {
 		payload string
 		want    LogEntry
 	}{
-		{"status 200 is info", `method=GET path="/password" status=200 duration=0.030s`,
-			LogEntry{Timestamp: timePrefixParsed, Level: LevelInfo, Fields: map[string]string{
+		{"status 200 is info", `method=GET path="/password" host=id.hedia.dev  status=200 duration=0.030s`,
+			LogEntry{Timestamp: timePrefixParsed, Level: LevelInfo, Host: "id.hedia.dev", Fields: map[string]string{
 				"method":   "GET",
 				"path":     "/password",
 				"status":   "200",

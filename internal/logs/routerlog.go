@@ -7,11 +7,14 @@ import (
 
 func ParseRouterLog(envelope Envelope) LogEntry {
 	fields := parseLogfmt(envelope.Payload)
+	host := fields["host"]
+	delete(fields, "host")
 
 	return LogEntry{
 		Timestamp: envelope.Timestamp,
 		Container: envelope.Container,
 		Level:     levelFromStatus(fields["status"]),
+		Host:      host,
 		Fields:    fields,
 		Raw:       envelope.Raw,
 	}

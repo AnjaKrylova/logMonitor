@@ -22,6 +22,7 @@ type LogEntry struct {
 	App       string
 	Container string // e.g. "router", "web-1"
 	Level     LogLevel
+	Host      string
 	Message   string
 	ErrorCode string // e.g. "FETCH_CLIENT_ERROR_REQUEST_TIMEOUT"
 	Fields    map[string]string

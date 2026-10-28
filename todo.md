@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 11 — Multiple applications (not started).
-**Next step:** Exercise 11 load simulation: 70 fake apps sending lines concurrently to `POST /ingest`. (Warm-up done 2026-10-27: `ParseEnvelope` rewritten from the tests; zone check via `strings.Fields`.)
+**Current:** Exercise 11 — Multiple applications (in progress).
+**Next step:** load simulation with 4 rows (50×1+1, 100×2+2, 100×4+4, 200×4+4). Last step of Exercise 11.
 
 ---
 
@@ -85,7 +85,7 @@ Detail is added when an exercise starts.
 - [ ] **11. Multiple applications (reshaped 2026-10-26)** — all 70 apps push to one endpoint (Scalingo drains), so there are no per-app streams to manage. _Fan-in, load simulation._
   - [x] Bug from real lines: `CEST[web-1]` (no space) lost container/app/level — `parseTimestamp` now cuts a glued zone; test data switched to the real format
   - [ ] Load simulation: fake apps sending lines concurrently to `POST /ingest` (`httptest.NewServer` + real pipeline); one goroutine per container (up to 4 `web-N`, 4 `worker-N`, `router` = 9 per app); rows (start small, grow): **50 apps × 1 web + 1 worker**, **100 apps × 2 web + 2 worker**, **100 apps × 4 web + 4 worker**, **200 apps × 4 web + 4 worker** = future worst case (+ `router` per app → 150 / 500 / 900 / 1,800 senders); knobs: apps, web and worker containers per app, lines per container; check every line saved, measure time, see whether "queue is full" appears
-  - [ ] App name decided (2026-10-27): `App` only from the app JSON (`app.name`), else empty; add `LogEntry.Host` from router `host=` (red test first); router lines are kept (useful for 5xx / latency stats) — revisit if the load test shows a performance problem
+  - [x] App name decided (2026-10-27): `App` only from the app JSON (`app.name`), else empty; `LogEntry.Host` from router `host=`, removed from `Fields` (done 2026-10-28); router lines are kept (useful for 5xx / latency stats) — revisit if the load test shows a performance problem
 - [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
 - [ ] **13. Aggregation** — hourly buckets, including zero-count hours. _Time bucketing, maps._
 - [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`. Logging: same as `/logs` (`Warn` on 400, `Error` on 500).

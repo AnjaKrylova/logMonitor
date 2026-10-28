@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 11 — Multiple applications (in progress).
-**Next step:** load simulation with 4 rows (50×1+1, 100×2+2, 100×4+4, 200×4+4). Last step of Exercise 11.
+**Current:** Exercise 11 — Multiple applications (not started).
+**Next step:** Exercise 11 load simulation: 70 fake apps sending lines concurrently to `POST /ingest`. (Warm-up done 2026-10-27: `ParseEnvelope` rewritten from the tests; zone check via `strings.Fields`.)
 
 ---
 

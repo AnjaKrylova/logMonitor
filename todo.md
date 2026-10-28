@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 11 — Multiple applications (not started).
-**Next step:** Exercise 11 load simulation: 70 fake apps sending lines concurrently to `POST /ingest`. (Warm-up done 2026-10-27: `ParseEnvelope` rewritten from the tests; zone check via `strings.Fields`.)
+**Current:** Exercise 11 ✅ done 2026-10-28 — load test: 200 apps × 9 containers (1,800 senders, 18,000 HTTP lines) in ~0.45 s on the laptop, all saved, no "queue is full". Client needs `MaxConnsPerHost: 100` (Windows refuses a burst of >~200 simultaneous dials). Next: Exercise 12.
+**Next step:** load test written (`internal/api/load_test.go`, 4 rows, timing). Row 1 green (1,500 lines, 113 ms); rows 2–4 fail with "connection refused": the default client keeps only 2 idle conns, so each line opens a new TCP connection. Fix: own `http.Client` with `http.Transport{MaxIdleConnsPerHost: …}` (one long-lived connection per sender, like a real drain). Then read the numbers. Last step of Exercise 11.
 
 ---
 
@@ -90,7 +90,7 @@ Detail is added when an exercise starts.
 - [ ] **13. Aggregation** — hourly buckets, including zero-count hours. _Time bucketing, maps._
 - [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`. Logging: same as `/logs` (`Warn` on 400, `Error` on 500).
 - [ ] **15. Redis** — `RedisLogRepository` behind the same interface. _External dependencies, integration tests._ Logging: `slog.Error` when Redis is unreachable; return errors from the repository, log them in callers (consumer, handlers).
-- [ ] **16. Scalingo integration** — `ScalingoLogSource`; investigate drains vs streaming first. App name comes from the source. Logging: `slog.Warn` on malformed syslog frames; `slog.Error` when the listener fails.
+- [ ] **16. Scalingo integration** — `ScalingoLogSource`; investigate drains vs streaming first. App name comes from the source. Also find out how many connections a drain opens and whether they stay open (the load test only proves the pipeline, see overview). Logging: `slog.Warn` on malformed syslog frames; `slog.Error` when the listener fails.
 - [ ] **17. Retry & backoff** — exponential backoff with a max delay. _`time.NewTimer`, `select` with `ctx.Done()`._ Logging: `slog.Warn` on each retry (attempt, delay); `slog.Error` when giving up.
 - [ ] **18. Graceful shutdown** — SIGTERM → stop intake → drain queue → close storage. _`signal.NotifyContext`._ Logging: `slog.Info` for each shutdown step; `slog.Error` if draining times out or storage fails to close.
 - [ ] **19. Time handling** — define "today" (Europe/Copenhagen), store UTC; test midnight, DST, month/year boundaries.

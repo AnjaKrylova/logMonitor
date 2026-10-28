@@ -257,6 +257,14 @@ Each entry: what was decided — why — the alternative not chosen.
   `duration` are the best input for error-rate and latency stats. —
   Revisit if the load simulation shows they cost too much.
   *Not chosen:* `host` as `App`; dropping router lines at ingestion.
+- **Load test result (2026-10-28):** 200 apps × 9 containers (1,800
+  senders, 18,000 HTTP lines) in ~0.45 s on the laptop, all saved, no
+  "queue is full" → the pipeline (10,000 buffer, 2 workers) has plenty of
+  headroom and router lines are no performance problem. The test client
+  caps connections (`MaxConnsPerHost: 100`) only because Windows refuses
+  bursts of >~200 simultaneous dials; this says nothing about Scalingo.
+  *Open for Exercise 16:* how many connections drains really open, and
+  whether they stay open.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

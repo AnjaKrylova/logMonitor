@@ -13,11 +13,11 @@ type Request struct {
 	Line string `json:"line"`
 }
 
-type Handler struct {
+type IngestHandler struct {
 	Channel chan<- logs.LogEntry
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *IngestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var body Request
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {

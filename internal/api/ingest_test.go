@@ -14,7 +14,7 @@ import (
 
 var routerLine = `2026-06-24 15:02:19.446989072 +0200 CEST[router] method=GET path="/password" status=200 duration=0.030s`
 
-func TestHandler_ServeHTTP(t *testing.T) {
+func TestIngestHandler_ServeHTTP(t *testing.T) {
 	validBody, err := json.Marshal(Request{Line: routerLine})
 	if err != nil {
 		t.Fatalf("Marshal failed: %v", err)
@@ -37,7 +37,7 @@ func TestHandler_ServeHTTP(t *testing.T) {
 	for _, d := range data {
 		t.Run(d.name, func(t *testing.T) {
 			ch := make(chan logs.LogEntry, 1)
-			h := &Handler{ch}
+			h := &IngestHandler{ch}
 			body := strings.NewReader(d.body)
 			req := httptest.NewRequest(http.MethodPost, "/ingest", body)
 			w := httptest.NewRecorder()
@@ -72,7 +72,7 @@ func TestHandler_ServeHTTP(t *testing.T) {
 
 // When the queue is full, ServeHTTP blocks until there is room, then
 // delivers the entry and answers 202: nothing is dropped.
-func TestHandler_ServeHTTP_QueueFull(t *testing.T) {
+func TestIngestHandler_ServeHTTP_QueueFull(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		validBody, err := json.Marshal(Request{Line: routerLine})
 		if err != nil {
@@ -84,7 +84,7 @@ func TestHandler_ServeHTTP_QueueFull(t *testing.T) {
 		filler := logs.LogEntry{Message: "filler"}
 		ch <- filler
 
-		h := &Handler{ch}
+		h := &IngestHandler{ch}
 		body := strings.NewReader(string(validBody))
 		req := httptest.NewRequest(http.MethodPost, "/ingest", body)
 		w := httptest.NewRecorder()

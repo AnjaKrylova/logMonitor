@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 12 — Query model (not started). (Exercise 11 done 2026-10-28: load test, see overview.)
-**Next step:** first slice of `GET /logs`: `from`, `to`, `app` → `LogFilter` → `Find` → JSON. Decided: `from`/`to` in RFC 3339 (`time.RFC3339`); missing → no limit; invalid → 400 + `slog.Warn`.
+**Next step:** `api.LogsHandler{Repository}` (logs.go) returns `{"logs": [...]}` for an empty filter — green. Next: query parameters (`app`, then `from`/`to`) via `r.URL.Query().Get`; remove the `WriteHeader` after `Encode`; register `GET /logs` in `main.go`. Decided: `from`/`to` in RFC 3339 (`time.RFC3339`); missing → no limit; invalid → 400 + `slog.Warn`. (Also renamed handler.go → ingest.go.)
 
 ---
 

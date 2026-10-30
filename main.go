@@ -57,8 +57,11 @@ func main() {
 	}
 	go p.Run(entries)
 
-	h := &api.Handler{Channel: entries}
-	mux.Handle("POST /ingest", h)
+	ih := &api.IngestHandler{Channel: entries}
+	mux.Handle("POST /ingest", ih)
+
+	lh := &api.LogsHandler{Repository: repo}
+	mux.Handle("GET /logs", lh)
 
 	err := s.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

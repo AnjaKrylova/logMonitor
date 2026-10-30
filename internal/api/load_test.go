@@ -58,7 +58,7 @@ func TestHandler_ServeHTTP_Load(t *testing.T) {
 			}()
 
 			// A real HTTP server in front of the handler.
-			srv := httptest.NewServer(&Handler{Channel: entries})
+			srv := httptest.NewServer(&IngestHandler{Channel: entries})
 			defer srv.Close()
 
 			client := http.Client{

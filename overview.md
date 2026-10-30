@@ -265,6 +265,13 @@ Each entry: what was decided — why — the alternative not chosen.
   bursts of >~200 simultaneous dials; this says nothing about Scalingo.
   *Open for Exercise 16:* how many connections drains really open, and
   whether they stay open.
+- **The API serves the existing UI** (screenshots, 2026-10-30): a Dashboard
+  (cards grouped by app + container type + level + message template, count
+  per day, hourly chart), a Logs list (filters: app, container type, level,
+  template, request ID, search) and a Log detail (formatted message, params,
+  data with stack, source, container, origin, raw line). Exercises 12–14
+  are shaped by these screens. Grouping uses the **message template**
+  (`%s` + `params`), not the filled-in text, so one error is one group.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

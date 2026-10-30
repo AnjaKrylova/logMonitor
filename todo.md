@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 11 ✅ done 2026-10-28 — load test: 200 apps × 9 containers (1,800 senders, 18,000 HTTP lines) in ~0.45 s on the laptop, all saved, no "queue is full". Client needs `MaxConnsPerHost: 100` (Windows refuses a burst of >~200 simultaneous dials). Next: Exercise 12.
-**Next step:** load test written (`internal/api/load_test.go`, 4 rows, timing). Row 1 green (1,500 lines, 113 ms); rows 2–4 fail with "connection refused": the default client keeps only 2 idle conns, so each line opens a new TCP connection. Fix: own `http.Client` with `http.Transport{MaxIdleConnsPerHost: …}` (one long-lived connection per sender, like a real drain). Then read the numbers. Last step of Exercise 11.
+**Current:** Exercise 12 — Query model (not started). (Exercise 11 done 2026-10-28: load test, see overview.)
+**Next step:** first slice of `GET /logs`: `from`, `to`, `app` → `LogFilter` → `Find` → JSON. Decided: `from`/`to` in RFC 3339 (`time.RFC3339`); missing → no limit; invalid → 400 + `slog.Warn`.
 
 ---
 
@@ -86,9 +86,18 @@ Detail is added when an exercise starts.
   - [x] Bug from real lines: `CEST[web-1]` (no space) lost container/app/level — `parseTimestamp` now cuts a glued zone; test data switched to the real format
   - [ ] Load simulation: fake apps sending lines concurrently to `POST /ingest` (`httptest.NewServer` + real pipeline); one goroutine per container (up to 4 `web-N`, 4 `worker-N`, `router` = 9 per app); rows (start small, grow): **50 apps × 1 web + 1 worker**, **100 apps × 2 web + 2 worker**, **100 apps × 4 web + 4 worker**, **200 apps × 4 web + 4 worker** = future worst case (+ `router` per app → 150 / 500 / 900 / 1,800 senders); knobs: apps, web and worker containers per app, lines per container; check every line saved, measure time, see whether "queue is full" appears
   - [x] App name decided (2026-10-27): `App` only from the app JSON (`app.name`), else empty; `LogEntry.Host` from router `host=`, removed from `Fields` (done 2026-10-28); router lines are kept (useful for 5xx / latency stats) — revisit if the load test shows a performance problem
-- [ ] **12. Query model** — `LogQuery` (from, to, app, level, error, limit, cursor); `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
-- [ ] **13. Aggregation** — hourly buckets, including zero-count hours. _Time bucketing, maps._
-- [ ] **14. Statistics APIs** — `GET /stats/apps`, `/stats/errors`, `/stats/hourly`. Logging: same as `/logs` (`Warn` on 400, `Error` on 500).
+- [ ] **12. Query model — the Logs list screen** (design: real UI screenshots, 2026-10-30) — `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
+  - [ ] `GET /logs` with `from`, `to`, `app` → `LogFilter` → `Find` → JSON (`[]` not `null`); newest first
+  - [ ] Container type: `worker-1` → `worker`; filter by it
+  - [ ] Filter by level
+  - [ ] Message template vs formatted message: keep the template (`%s`) and `params`; the list shows the filled-in text
+  - [ ] Filter by message template
+  - [ ] Request ID (`request_id`): filter "everything for this request"
+  - [ ] Search text (message contains)
+  - [ ] `limit` + cursor (paging) — the one genuinely new concept, last
+- [ ] **12b. Log detail** — `GET /logs/{id}`: assign `LogEntry.ID` on ingest; response has formatted message, params, data (re-parse `Raw` for nested JSON incl. stack), source, container + type, origin, raw line.
+- [ ] **13. Aggregation — the Dashboard screen** — group by app + container type + level + message template; count per day; hourly buckets 00–23 including zero-count hours. _Time bucketing, maps._
+- [ ] **14. Statistics APIs** — endpoint(s) serving the dashboard cards (count + hourly series per group, filters: app, container type, level, day; sort by count). Logging: same as `/logs` (`Warn` on 400, `Error` on 500).
 - [ ] **15. Redis** — `RedisLogRepository` behind the same interface. _External dependencies, integration tests._ Logging: `slog.Error` when Redis is unreachable; return errors from the repository, log them in callers (consumer, handlers).
 - [ ] **16. Scalingo integration** — `ScalingoLogSource`; investigate drains vs streaming first. App name comes from the source. Also find out how many connections a drain opens and whether they stay open (the load test only proves the pipeline, see overview). Logging: `slog.Warn` on malformed syslog frames; `slog.Error` when the listener fails.
 - [ ] **17. Retry & backoff** — exponential backoff with a max delay. _`time.NewTimer`, `select` with `ctx.Done()`._ Logging: `slog.Warn` on each retry (attempt, delay); `slog.Error` when giving up.

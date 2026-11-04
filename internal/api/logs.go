@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
 
 	"logmonitor/internal/logs"
@@ -20,19 +22,16 @@ type LogsResponse struct {
 
 func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	app := r.URL.Query().Get("app")
-	from := r.URL.Query().Get("from")
-	to := r.URL.Query().Get("to")
-
-	fromTime, err := time.Parse(time.RFC3339, from)
-	if from != "" && err != nil {
-		slog.Warn("failed to parse 'from' parameter", "error", err)
-		http.Error(w, "failed to parse 'from' parameter", http.StatusBadRequest)
+	fromTime, err := parseTimeQueryParam(r.URL.Query(), "from")
+	if err != nil {
+		slog.Warn("invalid query parameter", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	toTime, err := time.Parse(time.RFC3339, to)
-	if to != "" && err != nil {
-		slog.Warn("failed to parse 'to' parameter", "error", err)
-		http.Error(w, "failed to parse 'to' parameter", http.StatusBadRequest)
+	toTime, err := parseTimeQueryParam(r.URL.Query(), "to")
+	if err != nil {
+		slog.Warn("invalid query parameter", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	filter := storage.LogFilter{
@@ -48,4 +47,13 @@ func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(LogsResponse{Logs: found})
+}
+
+func parseTimeQueryParam(uv url.Values, paramValue string) (time.Time, error) {
+	vUnparsed := uv.Get(paramValue)
+	vParsed, err := time.Parse(time.RFC3339, vUnparsed)
+	if vUnparsed != "" && err != nil {
+		return vParsed, fmt.Errorf("invalid %q: %w", paramValue, err)
+	}
+	return vParsed, nil
 }

@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 12 — Query model (started). (Exercise 11 done 2026-10-28: load test, see overview.)
-**Next step:** `api.LogsHandler{Repository}` (logs.go) returns `{"logs": [...]}` for an empty filter and is registered as `GET /logs` in `main.go` — green. `?app=` filter — green (2026-11-03). `?from=` / `?to=` — green, invalid → 400 + `slog.Warn` (2026-11-03). Next: refactor duplicated from/to parsing into a helper; then `[]` not `null` for no match, and newest first. Decided: `from`/`to` in RFC 3339 (`time.RFC3339`); missing → no limit; invalid → 400 + `slog.Warn`.
+**Next step:** `api.LogsHandler{Repository}` (logs.go) returns `{"logs": [...]}` for an empty filter and is registered as `GET /logs` in `main.go` — green. `?app=` filter — green (2026-11-03). `?from=` / `?to=` — green, invalid → 400 + `slog.Warn` (2026-11-03). Refactor: `parseTimeQueryParam(url.Values, name)` with `%w` wrapping (2026-11-04). Next: `[]` not `null` for no match, then newest first. Decided: `from`/`to` in RFC 3339 (`time.RFC3339`); missing → no limit; invalid → 400 + `slog.Warn`.
 
 ---
 

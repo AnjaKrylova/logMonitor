@@ -136,6 +136,25 @@ func TestLogsHandler_ServeHTTP(t *testing.T) {
 			400,
 			LogsResponse{},
 		},
+		{"nonexistent app filter",
+			"/logs?app=nonexistent-app",
+			[]logs.LogEntry{
+				{
+					Timestamp: logTime,
+					Container: "web-1",
+					App:       "test1-app",
+				},
+				{
+					Timestamp: logTime,
+					Container: "web-1",
+					App:       "demo-app",
+				},
+			},
+			200,
+			LogsResponse{
+				Logs: []logs.LogEntry{},
+			},
+		},
 	}
 
 	for _, d := range data {
@@ -163,7 +182,7 @@ func TestLogsHandler_ServeHTTP(t *testing.T) {
 				t.Fatalf("Unmarshal failed: %v", err)
 			}
 			if !reflect.DeepEqual(got, d.wantResponse) {
-				t.Errorf("got %v\nwant %v", got.Logs, d.wantResponse.Logs)
+				t.Errorf("got %#v\nwant %#v", got.Logs, d.wantResponse.Logs)
 			}
 		})
 	}

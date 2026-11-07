@@ -272,6 +272,15 @@ Each entry: what was decided — why — the alternative not chosen.
   data with stack, source, container, origin, raw line). Exercises 12–14
   are shaped by these screens. Grouping uses the **message template**
   (`%s` + `params`), not the filled-in text, so one error is one group.
+- **`GET /logs` returns `[]`, never `null`; the handler converts `nil`**
+  (2026-11-07). `Find` keeps returning `nil` for no match. — JS clients
+  crash on `null.length`; only the JSON edge sees the difference. *Not
+  chosen:* API returns `null`; `Find` returns an empty slice (every
+  repository would need the rule).
+- **`Find` returns entries newest first** (2026-11-07). — Paging (`limit` +
+  cursor) needs a stable order before the cut, and Redis/SQL can sort
+  cheaper than the caller. *Not chosen:* sorting in the `GET /logs` handler
+  (simpler now, but would move once paging arrives).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

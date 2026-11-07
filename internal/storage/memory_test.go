@@ -66,13 +66,13 @@ func TestMemoryLogRepository_Find(t *testing.T) {
 			"From returns only entries at or after From",
 			[]logs.LogEntry{before, at, after},
 			storage.LogFilter{From: timePrefixParsed.Add(-30 * time.Minute)},
-			[]logs.LogEntry{at, after},
+			[]logs.LogEntry{after, at},
 		},
 		{
 			"To returns only entries before To",
 			[]logs.LogEntry{before, at, after},
 			storage.LogFilter{To: timePrefixParsed.Add(30 * time.Minute)},
-			[]logs.LogEntry{before, at},
+			[]logs.LogEntry{at, before},
 		},
 		{
 			"App returns only entries with the matching App",
@@ -84,7 +84,7 @@ func TestMemoryLogRepository_Find(t *testing.T) {
 			"From is inclusive, To is exclusive",
 			[]logs.LogEntry{atMinus2, atMinus1, at, atPlus1, atPlus2},
 			storage.LogFilter{From: atMinus1.Timestamp, To: atPlus1.Timestamp},
-			[]logs.LogEntry{atMinus1, at},
+			[]logs.LogEntry{at, atMinus1},
 		},
 		{
 			"App and time range must both match",
@@ -95,6 +95,12 @@ func TestMemoryLogRepository_Find(t *testing.T) {
 			},
 			storage.LogFilter{From: timePrefixParsed.Add(-30 * time.Minute), To: timePrefixParsed.Add(30 * time.Minute), App: "app2"},
 			[]logs.LogEntry{appAt("app2", 0)},
+		},
+		{
+			"Find returns entries in descending order of Timestamp",
+			[]logs.LogEntry{after, before, at},
+			storage.LogFilter{},
+			[]logs.LogEntry{after, at, before},
 		},
 	}
 

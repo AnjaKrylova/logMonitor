@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"slices"
 	"sync"
 
 	"logmonitor/internal/logs"
@@ -27,5 +28,9 @@ func (m *MemoryLogRepository) Find(f LogFilter) ([]logs.LogEntry, error) {
 			result = append(result, e)
 		}
 	}
+	slices.SortStableFunc(result, func(a, b logs.LogEntry) int {
+		r := a.Timestamp.Compare(b.Timestamp)
+		return -r
+	})
 	return result, nil
 }

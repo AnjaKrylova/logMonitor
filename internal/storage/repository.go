@@ -29,5 +29,6 @@ func (f LogFilter) matches(e logs.LogEntry) bool {
 
 type LogRepository interface {
 	Save(e logs.LogEntry) error
+	//  returns entries newest first
 	Find(f LogFilter) ([]logs.LogEntry, error)
 }

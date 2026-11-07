@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 12 — Query model (started). (Exercise 11 done 2026-10-28: load test, see overview.)
-**Next step:** `api.LogsHandler{Repository}` (logs.go) returns `{"logs": [...]}` for an empty filter and is registered as `GET /logs` in `main.go` — green. `?app=` filter — green (2026-11-03). `?from=` / `?to=` — green, invalid → 400 + `slog.Warn` (2026-11-03). Refactor: `parseTimeQueryParam(url.Values, name)` with `%w` wrapping (2026-11-04). Next: `[]` not `null` for no match, then newest first. Decided: `from`/`to` in RFC 3339 (`time.RFC3339`); missing → no limit; invalid → 400 + `slog.Warn`.
+**Next step:** container type — `worker-1` → `worker`; then filter by it (`?container_type=`). First `/logs` item done 2026-11-07.
 
 ---
 
@@ -87,7 +87,7 @@ Detail is added when an exercise starts.
   - [ ] Load simulation: fake apps sending lines concurrently to `POST /ingest` (`httptest.NewServer` + real pipeline); one goroutine per container (up to 4 `web-N`, 4 `worker-N`, `router` = 9 per app); rows (start small, grow): **50 apps × 1 web + 1 worker**, **100 apps × 2 web + 2 worker**, **100 apps × 4 web + 4 worker**, **200 apps × 4 web + 4 worker** = future worst case (+ `router` per app → 150 / 500 / 900 / 1,800 senders); knobs: apps, web and worker containers per app, lines per container; check every line saved, measure time, see whether "queue is full" appears
   - [x] App name decided (2026-10-27): `App` only from the app JSON (`app.name`), else empty; `LogEntry.Host` from router `host=`, removed from `Fields` (done 2026-10-28); router lines are kept (useful for 5xx / latency stats) — revisit if the load test shows a performance problem
 - [ ] **12. Query model — the Logs list screen** (design: real UI screenshots, 2026-10-30) — `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
-  - [ ] `GET /logs` with `from`, `to`, `app` → `LogFilter` → `Find` → JSON (`[]` not `null`); newest first
+  - [x] `GET /logs` with `from`, `to`, `app` → `LogFilter` → `Find` → JSON (`[]` not `null`); newest first (done 2026-11-07; `parseTimeQueryParam` helper, `Find` sorts newest first with `slices.SortStableFunc`)
   - [ ] Container type: `worker-1` → `worker`; filter by it
   - [ ] Filter by level
   - [ ] Message template vs formatted message: keep the template (`%s`) and `params`; the list shows the filled-in text

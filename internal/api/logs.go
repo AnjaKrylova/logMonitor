@@ -45,6 +45,9 @@ func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to find logs", http.StatusInternalServerError)
 		return
 	}
+	if found == nil {
+		found = []logs.LogEntry{}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(LogsResponse{Logs: found})
 }

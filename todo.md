@@ -6,7 +6,7 @@ Every step is TDD: red → green → refactor (see overview).
 ## Status
 
 **Current:** Exercise 12 — Query model (started). (Exercise 11 done 2026-10-28: load test, see overview.)
-**Next step:** container type — `worker-1` → `worker`; then filter by it (`?container_type=`). First `/logs` item done 2026-11-07.
+**Next step:** `limit` + cursor (paging) — the last core item of Exercise 12. (`MessageParams` done 2026-11-08; optional: share scalar cases between `flatten` and `paramsToStrings`.)
 
 ---
 
@@ -39,7 +39,7 @@ Done:
 Optional (can be picked up any time):
 
 - [x] Guard row in `TestParseAppLog` with two broken fields (`{"app":{"name":123},"level":"warn","timestamp":"2025-09-08"}` → envelope time)
-- [ ] Per-field checks instead of `reflect.DeepEqual` in `TestParseAppLog` (`%q`, `Timestamp.Equal`)
+- [x] Per-field checks instead of `reflect.DeepEqual` in `TestParseAppLog` — solved with `cmp.Diff` (go-cmp, 2026-11-08)
 - [ ] `ParseLog`: convert to UTC once (pick entry, convert, return) instead of in three places
 - [ ] `TestParseLog`: row with a non-UTC `receivedAt` (e.g. `receivedAt.In(time.FixedZone("CET", 3600))`) to prove the fallback path converts too
 
@@ -88,13 +88,20 @@ Detail is added when an exercise starts.
   - [x] App name decided (2026-10-27): `App` only from the app JSON (`app.name`), else empty; `LogEntry.Host` from router `host=`, removed from `Fields` (done 2026-10-28); router lines are kept (useful for 5xx / latency stats) — revisit if the load test shows a performance problem
 - [ ] **12. Query model — the Logs list screen** (design: real UI screenshots, 2026-10-30) — `GET /logs`. _Query parsing separate from storage._ Logging: `slog.Warn` on 400 (bad query params); `slog.Error` + 500 when `Find` fails.
   - [x] `GET /logs` with `from`, `to`, `app` → `LogFilter` → `Find` → JSON (`[]` not `null`); newest first (done 2026-11-07; `parseTimeQueryParam` helper, `Find` sorts newest first with `slices.SortStableFunc`)
-  - [ ] Container type: `worker-1` → `worker`; filter by it
+  - [x] Container type: `worker-1` → `worker` (edge case `one-off-1234` → `one-off`); filter by it (done 2026-11-07; `LogEntry.ContainerType()` method, `?container_type=`)
+  - [x] Message template + `MessageParams` (decided 2026-11-08, see overview): `"User %s not found"` + `["123"]`; the UI fills in the gap
+    - [x] `LogEntry.MessageParams []string` (log.go)
+    - [x] `appLogPayload.MessageParams` with tag `json:"params"`; `ParseAppLog` copies it — strings only; empty → `nil` like `Fields`
+    - [x] Numbers in params: `["a", 3]` → `"a"`, `"3"` (`paramsToStrings`, 2026-11-08). Open: a `null` param is skipped, which shifts later params to the wrong gap — Node prints `"null"`
+    - [x] Remove `params.*` from `Fields` (`delete(raw, "params")` before `flatten`)
+  - [ ] `limit` + cursor (paging) — the one genuinely new concept, last
+
+  Optional (same filter pattern as `app`; good for low-energy days, can be picked up any time):
+
   - [ ] Filter by level
-  - [ ] Message template vs formatted message: keep the template (`%s`) and `params`; the list shows the filled-in text
   - [ ] Filter by message template
   - [ ] Request ID (`request_id`): filter "everything for this request"
   - [ ] Search text (message contains)
-  - [ ] `limit` + cursor (paging) — the one genuinely new concept, last
 - [ ] **12b. Log detail** — `GET /logs/{id}`: assign `LogEntry.ID` on ingest; response has formatted message, params, data (re-parse `Raw` for nested JSON incl. stack), source, container + type, origin, raw line.
 - [ ] **13. Aggregation — the Dashboard screen** — group by app + container type + level + message template; count per day; hourly buckets 00–23 including zero-count hours. _Time bucketing, maps._
 - [ ] **14. Statistics APIs** — endpoint(s) serving the dashboard cards (count + hourly series per group, filters: app, container type, level, day; sort by count). Logging: same as `/logs` (`Warn` on 400, `Error` on 500).

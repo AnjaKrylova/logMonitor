@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var payloadTime = time.UnixMilli(1757329978852)
@@ -55,6 +57,22 @@ func TestParseAppLog(t *testing.T) {
 		{"info log without app or error data",
 			`{"level":"info","message":"Server started","timestamp":1757329978852}`,
 			LogEntry{Timestamp: payloadTime, Level: LevelInfo, Message: "Server started"}},
+		{"params are kept as a list",
+			`{"level":"error","message":"User %s not found","params":["123"],"timestamp":1757329978852}`,
+			LogEntry{
+				Timestamp:     payloadTime,
+				Level:         LevelError,
+				Message:       "User %s not found",
+				MessageParams: []string{"123"},
+			}},
+		{"number params become strings",
+			`{"level":"error","message":"Item %s has %d units","params":["a",3],"timestamp":1757329978852}`,
+			LogEntry{
+				Timestamp:     payloadTime,
+				Level:         LevelError,
+				Message:       "Item %s has %d units",
+				MessageParams: []string{"a", "3"},
+			}},
 		{"unknown level falls back to LevelUnknown",
 			`{"level":"fatal","timestamp":1757329978852}`,
 			LogEntry{Timestamp: payloadTime, Level: LevelUnknown}},
@@ -98,8 +116,8 @@ func TestParseAppLog(t *testing.T) {
 			want.Raw = input.Raw
 
 			result := ParseAppLog(input)
-			if !reflect.DeepEqual(result, want) {
-				t.Errorf("ParseAppLog(%q)\n got: %+v\nwant: %+v", d.payload, result, want)
+			if diff := cmp.Diff(want, result); diff != "" {
+				t.Errorf("ParseAppLog() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

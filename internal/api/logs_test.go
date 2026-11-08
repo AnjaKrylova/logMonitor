@@ -155,6 +155,31 @@ func TestLogsHandler_ServeHTTP(t *testing.T) {
 				Logs: []logs.LogEntry{},
 			},
 		},
+		{"container type filter",
+			"/logs?container_type=worker",
+			[]logs.LogEntry{
+				{
+					Timestamp: logTime,
+					Container: "web-1",
+					App:       "demo-app",
+				},
+				{
+					Timestamp: logTime.Add(-30 * time.Minute),
+					Container: "worker-1",
+					App:       "demo-app",
+				},
+			},
+			200,
+			LogsResponse{
+				Logs: []logs.LogEntry{
+					{
+						Timestamp: logTime.Add(-30 * time.Minute),
+						Container: "worker-1",
+						App:       "demo-app",
+					},
+				},
+			},
+		},
 	}
 
 	for _, d := range data {

@@ -17,16 +17,17 @@ const (
 )
 
 type LogEntry struct {
-	ID        string
-	Timestamp time.Time
-	App       string
-	Container string // e.g. "router", "web-1"
-	Level     LogLevel
-	Host      string
-	Message   string
-	ErrorCode string // e.g. "FETCH_CLIENT_ERROR_REQUEST_TIMEOUT"
-	Fields    map[string]string
-	Raw       string
+	ID            string
+	Timestamp     time.Time
+	App           string
+	Container     string // e.g. "router", "web-1"
+	Level         LogLevel
+	Host          string
+	Message       string
+	MessageParams []string
+	ErrorCode     string // e.g. "FETCH_CLIENT_ERROR_REQUEST_TIMEOUT"
+	Fields        map[string]string
+	Raw           string
 }
 
 func ParseLogLevel(s string) (LogLevel, error) {
@@ -46,4 +47,13 @@ func ParseLogLevel(s string) (LogLevel, error) {
 
 func (l LogEntry) IsError() bool {
 	return l.Level == LevelError
+}
+
+// ContainerType returns Container without its index: "web-1" → "web", "one-off-1234" → "one-off".
+func (l LogEntry) ContainerType() string {
+	i := strings.LastIndex(l.Container, "-")
+	if i == -1 {
+		return l.Container
+	}
+	return l.Container[:i]
 }

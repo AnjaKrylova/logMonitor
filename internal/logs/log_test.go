@@ -34,3 +34,28 @@ func TestParseLogLevel(t *testing.T) {
 		})
 	}
 }
+
+func TestLogEntry_ContainerType(t *testing.T) {
+	data := []struct {
+		name      string
+		container string
+		want      string
+	}{
+		{"web container", `web-1`, `web`},
+		{"multi-digit index", `worker-12`, `worker`},
+		{"router has no index", `router`, `router`},
+		{"dash inside the type", `one-off-1234`, `one-off`},
+		{"empty container", ``, ``},
+	}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			l := LogEntry{Container: d.container}
+
+			r := l.ContainerType()
+			if r != d.want {
+				t.Errorf("got %q, want %q", r, d.want)
+			}
+		})
+	}
+}

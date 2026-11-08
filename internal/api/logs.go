@@ -22,6 +22,7 @@ type LogsResponse struct {
 
 func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	app := r.URL.Query().Get("app")
+	containerType := r.URL.Query().Get("container_type")
 	fromTime, err := parseTimeQueryParam(r.URL.Query(), "from")
 	if err != nil {
 		slog.Warn("invalid query parameter", "error", err)
@@ -35,9 +36,10 @@ func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter := storage.LogFilter{
-		App:  app,
-		From: fromTime,
-		To:   toTime,
+		App:           app,
+		From:          fromTime,
+		To:            toTime,
+		ContainerType: containerType,
 	}
 	found, err := h.Repository.Find(filter)
 	if err != nil {

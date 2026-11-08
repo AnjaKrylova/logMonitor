@@ -14,10 +14,11 @@ type appLogPayload struct {
 	App struct {
 		Name string `json:"name"`
 	} `json:"app"`
-	Level     string `json:"level"`
-	Message   string `json:"message"`
-	Timestamp int64  `json:"timestamp"` // Unix epoch milliseconds
-	Data      struct {
+	Level         string `json:"level"`
+	Message       string `json:"message"`
+	MessageParams []any  `json:"params"`
+	Timestamp     int64  `json:"timestamp"` // Unix epoch milliseconds
+	Data          struct {
 		Error struct {
 			Code string `json:"code"`
 		} `json:"error"`
@@ -38,18 +39,6 @@ func ParseAppLog(envelope Envelope) LogEntry {
 		}
 	}
 
-	var raw map[string]any
-	_ = json.Unmarshal([]byte(envelope.Payload), &raw) // non-object JSON (e.g. 42) leaves raw nil → no Fields
-
-	out := map[string]string{}
-	flatten("", raw, out)
-	for _, key := range mappedKeys {
-		delete(out, key)
-	}
-	if len(out) == 0 {
-		out = nil
-	}
-
 	timestamp := envelope.Timestamp
 	if parsedAppLog.Timestamp != 0 {
 		timestamp = time.UnixMilli(parsedAppLog.Timestamp)
@@ -58,20 +47,48 @@ func ParseAppLog(envelope Envelope) LogEntry {
 	level, _ := ParseLogLevel(parsedAppLog.Level)
 
 	return LogEntry{
-		Timestamp: timestamp,
-		App:       parsedAppLog.App.Name,
-		Container: envelope.Container,
-		Level:     level,
-		Message:   parsedAppLog.Message,
-		ErrorCode: parsedAppLog.Data.Error.Code,
-		Raw:       envelope.Raw,
-		Fields:    out,
+		Timestamp:     timestamp,
+		App:           parsedAppLog.App.Name,
+		Container:     envelope.Container,
+		Level:         level,
+		Message:       parsedAppLog.Message,
+		MessageParams: paramsToStrings(parsedAppLog.MessageParams),
+		ErrorCode:     parsedAppLog.Data.Error.Code,
+		Fields:        extraFields(envelope.Payload),
+		Raw:           envelope.Raw,
 	}
+}
+
+// extraFields returns every payload key that has no LogEntry field of its own, flattened.
+func extraFields(payload string) map[string]string {
+	var raw map[string]any
+	_ = json.Unmarshal([]byte(payload), &raw) // non-object JSON (e.g. 42) leaves raw nil → no Fields
+
+	out := map[string]string{}
+	// params is a list, so it is removed before flatten splits it into params.0, params.1, …;
+	// mappedKeys are single values and can be removed after.
+	delete(raw, "params")
+	flatten("", raw, out)
+	for _, key := range mappedKeys {
+		delete(out, key)
+	}
+	if len(out) == 0 {
+		out = nil
+	}
+	return out
 }
 
 // flatten writes every leaf value of v into out as a string, keyed by its
 // dotted path from prefix (origin.file, params.0). null values and empty
-// objects or arrays add no key.
+// objects or arrays add no key. Objects and arrays recurse one level deeper.
+//
+// Example:
+//
+//	{"origin":{"line":158},"params":["a",3],"ok":true,"extra":null}
+//
+// becomes
+//
+//	"origin.line": "158", "params.0": "a", "params.1": "3", "ok": "true"
 func flatten(path string, v any, out map[string]string) {
 	switch x := v.(type) {
 	case string:
@@ -98,4 +115,19 @@ func joinKey(prefix, k string) string {
 		return k
 	}
 	return prefix + "." + k
+}
+
+func paramsToStrings(params []any) []string {
+	var result []string
+	for _, v := range params {
+		switch x := v.(type) {
+		case string:
+			result = append(result, x)
+		case float64:
+			result = append(result, strconv.FormatFloat(x, 'f', -1, 64))
+		case bool:
+			result = append(result, strconv.FormatBool(x))
+		}
+	}
+	return result
 }

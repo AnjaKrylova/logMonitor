@@ -7,13 +7,17 @@ import (
 )
 
 type LogFilter struct {
-	From time.Time // inclusive
-	To   time.Time // exclusive
-	App  string
+	From          time.Time // inclusive
+	To            time.Time // exclusive
+	App           string
+	ContainerType string
 }
 
 func (f LogFilter) matches(e logs.LogEntry) bool {
 	if len(f.App) > 0 && e.App != f.App {
+		return false
+	}
+	if len(f.ContainerType) > 0 && e.ContainerType() != f.ContainerType {
 		return false
 	}
 	beforeFrom := e.Timestamp.Before(f.From)

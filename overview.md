@@ -180,8 +180,8 @@ Each entry: what was decided — why — the alternative not chosen.
   `Fields`. — Simplest; `host` is a hostname, not the app. *Possible later:*
   a summary message such as `"GET /password 200"` built from `Fields`.
 - **App `Fields` = every payload key not already mapped to a `LogEntry`
-  field** (`app.name`, `level`, `message`, `timestamp`, `data.error.code`
-  are skipped), flattened with dotted keys; array items as `params.0`;
+  field** (`app.name`, `level`, `message`, `params`, `timestamp`, `data.error.code`
+  are skipped), flattened with dotted keys; array items as `tags.0`;
   empty arrays/objects and `null` add no key; no extras → `Fields` is `nil`.
   — Keeps unknown custom fields; `null` is "nothing here" like `[]`.
   *Not chosen:* a fixed list of known keys; `null` → `"k": ""` (fake value,
@@ -281,6 +281,29 @@ Each entry: what was decided — why — the alternative not chosen.
   cursor) needs a stable order before the cut, and Redis/SQL can sort
   cheaper than the caller. *Not chosen:* sorting in the `GET /logs` handler
   (simpler now, but would move once paging arrives).
+- **Exercise 12 trimmed to what teaches something new** (2026-11-07):
+  container type, message template, paging. Level, template, request ID
+  and search filters became optional. — They repeat the `app` filter
+  pattern; time is better spent on aggregation, Redis, retry, shutdown.
+  *Not chosen:* doing every filter before moving on.
+- **Container type is a method, `LogEntry.ContainerType()`**, computed from
+  `Container` (2026-11-07). — One source of truth, nothing can drift,
+  parsers untouched; Redis can store the result at save time. *Not chosen:*
+  a stored `ContainerType` field set in `ParseLog`.
+- **The API returns the template + `MessageParams []string`; the UI fills in the
+  gap** (2026-11-08, from the UI screenshots). `Message` keeps the template
+  (`"User %s not found"`), so the dashboard groups by it; `MessageParams` is the
+  ordered list for the detail's Params card and for the UI's
+  `format(message, ...params)` — exactly what the Node UI does when drawing.
+  Params move out of `Fields` (no duplicate). — Order matters and maps have
+  none. *Not chosen:* `FormattedMessage()` in Go (the UI already formats);
+  clients rebuilding the list from `Fields["params.N"]`.
+- **Tests compare structs with `cmp.Diff` (`github.com/google/go-cmp`)**,
+  the first external dependency (2026-11-08). — Prints only the differing
+  fields (`-want +got`) and shows `nil` vs `[]string{}`; `reflect.DeepEqual`
+  + `%v` printed whole structs and both as `[]`. Started in
+  `TestParseAppLog`; other tests switch when touched. *Not chosen:* `%#v`
+  (no dependency, still a wall of text).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

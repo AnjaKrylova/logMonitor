@@ -102,6 +102,21 @@ func TestMemoryLogRepository_Find(t *testing.T) {
 			storage.LogFilter{},
 			[]logs.LogEntry{after, at, before},
 		},
+		{
+			"ContainerType returns only entries of that type",
+			[]logs.LogEntry{
+				{Timestamp: timePrefixParsed, Container: "web-1"},
+				{Timestamp: timePrefixParsed.Add(time.Minute), Container: "worker-1"},
+				{Timestamp: timePrefixParsed.Add(2 * time.Minute), Container: "web-2"},
+				{Timestamp: timePrefixParsed.Add(3 * time.Minute), Container: "router"},
+				{Timestamp: timePrefixParsed.Add(4 * time.Minute), Container: "one-off-1234"},
+			},
+			storage.LogFilter{ContainerType: "web"},
+			[]logs.LogEntry{
+				{Timestamp: timePrefixParsed.Add(2 * time.Minute), Container: "web-2"},
+				{Timestamp: timePrefixParsed, Container: "web-1"},
+			},
+		},
 	}
 
 	for _, d := range data {

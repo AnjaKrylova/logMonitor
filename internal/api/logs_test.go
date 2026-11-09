@@ -136,6 +136,9 @@ func TestLogsHandler_ServeHTTP(t *testing.T) {
 			400,
 			LogsResponse{},
 		},
+		{"limit is not a number", "/logs?limit=abc", nil, 400, LogsResponse{}},
+		{"limit is zero", "/logs?limit=0", nil, 400, LogsResponse{}},
+		{"limit above the maximum", "/logs?limit=501", nil, 400, LogsResponse{}},
 		{"nonexistent app filter",
 			"/logs?app=nonexistent-app",
 			[]logs.LogEntry{
@@ -208,6 +211,39 @@ func TestLogsHandler_ServeHTTP(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, d.wantResponse) {
 				t.Errorf("got %#v\nwant %#v", got.Logs, d.wantResponse.Logs)
+			}
+		})
+	}
+}
+
+func TestLogsHandler_ServeHTTP_Limit(t *testing.T) {
+	data := []struct {
+		name       string
+		requestURL string
+		wantCount  int
+	}{
+		{"default limit is 50", "/logs", 50},
+		{"explicit limit", "/logs?limit=2", 2},
+	}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			var repo storage.LogRepository = &storage.MemoryLogRepository{}
+			for i := range 60 {
+				repo.Save(logs.LogEntry{Timestamp: logTime.Add(time.Duration(i) * time.Minute)})
+			}
+			h := &LogsHandler{repo}
+			req := httptest.NewRequest(http.MethodGet, d.requestURL, nil)
+			w := httptest.NewRecorder()
+
+			h.ServeHTTP(w, req)
+
+			var got LogsResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+				t.Fatalf("Unmarshal failed: %v", err)
+			}
+			if len(got.Logs) != d.wantCount {
+				t.Errorf("got %d entries, want %d", len(got.Logs), d.wantCount)
 			}
 		})
 	}

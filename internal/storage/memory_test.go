@@ -1,10 +1,11 @@
 package storage_test
 
 import (
-	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	"logmonitor/internal/logs"
 	"logmonitor/internal/storage"
@@ -117,6 +118,18 @@ func TestMemoryLogRepository_Find(t *testing.T) {
 				{Timestamp: timePrefixParsed, Container: "web-1"},
 			},
 		},
+		{
+			"Limit keeps only the newest entries",
+			[]logs.LogEntry{before, after, at},
+			storage.LogFilter{Limit: 2},
+			[]logs.LogEntry{after, at},
+		},
+		{
+			"Limit larger than the number of entries returns all",
+			[]logs.LogEntry{before, after, at},
+			storage.LogFilter{Limit: 5},
+			[]logs.LogEntry{after, at, before},
+		},
 	}
 
 	for _, d := range data {
@@ -134,8 +147,8 @@ func TestMemoryLogRepository_Find(t *testing.T) {
 				t.Fatalf("Find(%+v) failed: %v", d.filter, err)
 			}
 
-			if !reflect.DeepEqual(result, d.want) {
-				t.Errorf("got %+v, want %+v", result, d.want)
+			if diff := cmp.Diff(d.want, result); diff != "" {
+				t.Errorf("Find() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

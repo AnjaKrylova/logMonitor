@@ -11,6 +11,7 @@ type LogFilter struct {
 	To            time.Time // exclusive
 	App           string
 	ContainerType string
+	Limit         int // max entries, newest first; 0 = no limit
 }
 
 func (f LogFilter) matches(e logs.LogEntry) bool {

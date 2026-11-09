@@ -110,7 +110,7 @@ the quarantine grows (10, 15, 20 min…) while it keeps failing. Retries,
 buffering or replay are **not documented**: assume lines rejected or sent
 during quarantine are lost for us. *Consequence for Exercise 9:* rejecting
 under load is risky; the ingestion side should accept fast and absorb
-bursts. Ask Scalingo support for the exact rules in Exercise 16.
+bursts. Ask Scalingo support for the exact rules in Exercise 27.
 
 ## Decisions
 
@@ -214,12 +214,12 @@ Each entry: what was decided — why — the alternative not chosen.
 - **Cancellation drains: only the producer watches `ctx`.** On cancel it
   stops sending and closes the channel; consumers finish what is in flight
   and `Run` returns. — No log already in the pipeline is lost; matches the
-  graceful shutdown plan (Exercise 18). *Not chosen:* consumers also stop on
+  graceful shutdown plan (Exercises 33–34). *Not chosen:* consumers also stop on
   `ctx` (faster, but drops entries). Consumers get `ctx` later only to pass
-  into `Save` (Redis, Exercise 15).
+  into `Save` (Redis, Exercises 22–26).
 - **`POST /ingest` takes a raw Scalingo-format line** (`{"line": "..."}`)
   and the handler calls `ParseLog`. — The same parsing then serves a future
-  syslog listener (Scalingo drains are syslog, Exercise 16); only transport
+  syslog listener (Scalingo drains are syslog, Exercises 27–31); only transport
   differs. *Not chosen:* client sends structured fields (duplicates parsing
   on the client, diverges from what Scalingo sends).
 - **HTTP handlers live in `internal/api`.** The ingest handler is a
@@ -263,13 +263,13 @@ Each entry: what was decided — why — the alternative not chosen.
   headroom and router lines are no performance problem. The test client
   caps connections (`MaxConnsPerHost: 100`) only because Windows refuses
   bursts of >~200 simultaneous dials; this says nothing about Scalingo.
-  *Open for Exercise 16:* how many connections drains really open, and
+  *Open for Exercise 27:* how many connections drains really open, and
   whether they stay open.
 - **The API serves the existing UI** (screenshots, 2026-10-30): a Dashboard
   (cards grouped by app + container type + level + message template, count
   per day, hourly chart), a Logs list (filters: app, container type, level,
   template, request ID, search) and a Log detail (formatted message, params,
-  data with stack, source, container, origin, raw line). Exercises 12–14
+  data with stack, source, container, origin, raw line). Exercises 12–21
   are shaped by these screens. Grouping uses the **message template**
   (`%s` + `params`), not the filled-in text, so one error is one group.
 - **`GET /logs` returns `[]`, never `null`; the handler converts `nil`**
@@ -304,6 +304,10 @@ Each entry: what was decided — why — the alternative not chosen.
   + `%v` printed whole structs and both as `[]`. Started in
   `TestParseAppLog`; other tests switch when touched. *Not chosen:* `%#v`
   (no dependency, still a wall of text).
+- **`?limit=`: default 50, allowed 1–500; anything else → 400** (2026-11-08).
+  — Same rule as `from`/`to` (invalid → 400); a silent cap could make a
+  client think it got everything. 50 matches the existing UI's page size.
+  *Not chosen:* quietly capping at the maximum.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

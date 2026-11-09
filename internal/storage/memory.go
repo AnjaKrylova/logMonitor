@@ -32,5 +32,8 @@ func (m *MemoryLogRepository) Find(f LogFilter) ([]logs.LogEntry, error) {
 		r := a.Timestamp.Compare(b.Timestamp)
 		return -r
 	})
+	if f.Limit != 0 && f.Limit < len(result) {
+		return result[:f.Limit], nil
+	}
 	return result, nil
 }

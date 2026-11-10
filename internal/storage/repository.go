@@ -35,6 +35,7 @@ func (f LogFilter) matches(e logs.LogEntry) bool {
 type LogRepository interface {
 	// Save stores e and assigns it a unique ID.
 	Save(e logs.LogEntry) error
-	// Find returns entries newest first.
+	// Find returns the entries matching f, newest first;
+	// entries with the same timestamp are ordered by ID, descending.
 	Find(f LogFilter) ([]logs.LogEntry, error)
 }

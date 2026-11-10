@@ -239,3 +239,24 @@ func TestMemoryLogRepository_ConcurrentSave(t *testing.T) {
 		t.Fatalf("Find returned %d entries, want %d", len(result), 10_000)
 	}
 }
+
+func TestMemoryLogRepository_FindBreaksTiesByID(t *testing.T) {
+	var repo storage.LogRepository = &storage.MemoryLogRepository{}
+	// Same content three times: only the ID can tell them apart.
+	for range 3 {
+		if err := repo.Save(logs.LogEntry{Timestamp: timePrefixParsed, Message: "same"}); err != nil {
+			t.Fatalf("Save failed: %v", err)
+		}
+	}
+
+	result, err := repo.Find(storage.LogFilter{})
+	if err != nil {
+		t.Fatalf("Find failed: %v", err)
+	}
+
+	for i := range len(result) - 1 {
+		if result[i].ID < result[i+1].ID {
+			t.Errorf("Find returned entries not sorted by ID: entry %d has ID %q, entry %d has ID %q", i, result[i].ID, i+1, result[i+1].ID)
+		}
+	}
+}

@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 15 of 37 — cursor. (Exercise 14, IDs, done 2026-11-10.)
-**Next step:** cursor — "next page starts here". First: why offset (`skip 50`) breaks when new logs arrive while paging; then what the cursor holds (timestamp + ID of the last entry on the page) and how `Find` continues after it.
+**Current:** Exercise 15a of 37 — cursor, storage side. (Exercise 14, IDs, done 2026-11-10.)
+**Next step:** 15a step 2 — `LogFilter` gets an "after" position (timestamp + ID of the last entry on the previous page); `Find` keeps only entries that come after it in the order. (Step 1, tie-break by ID, done 2026-11-10.)
 
 ---
 
@@ -106,7 +106,8 @@ From here on, **every exercise is one session** (renumbered 2026-11-08). Review 
 _Logs list — paging_
 - [x] **13. `limit`** ✅ (done 2026-11-09; `parseIntQueryParam` with a default, range check in the handler, cut in `Find`) — default 50, 1–500, else 400; `LogFilter.Limit` (0 = no limit), `Find` cuts after sorting; handler parses `?limit=`
 - [x] **14. IDs** ✅ (done 2026-11-10; UUID v4 via `github.com/google/uuid` in `Save`; tests ignore `ID` with `cmpopts.IgnoreFields`) — assign `LogEntry.ID` on ingest (unique, e.g. random hex); `Find` returns it. Comes before the cursor: timestamp + ID breaks ties between logs with the same timestamp (swapped 2026-11-09)
-- [ ] **15. Cursor** — "next page starts here": the response carries a cursor (timestamp + ID of the last entry, base64-encoded), the client sends it back
+- [ ] **15a. Cursor — storage** — `Find` sorts by timestamp, then ID (tie-breaker: the order must be computable from the cursor's values alone); `LogFilter` gets an "after" position (timestamp + ID), `Find` keeps only entries after it. Why not offset: new or expired logs shift positions → duplicates or gaps
+- [ ] **15b. Cursor — API** — `?cursor=` in, `nextCursor` out (base64 + JSON of timestamp + ID); invalid cursor → 400
 
 _Log detail screen_ — params, data (re-parse `Raw` for nested JSON incl. stack), source, container + type, origin, raw line
 - [ ] **16. `GET /logs/{id}`** — `r.PathValue("id")`, 404 when unknown, the detail response

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -31,8 +32,11 @@ func (m *MemoryLogRepository) Find(f LogFilter) ([]logs.LogEntry, error) {
 			result = append(result, e)
 		}
 	}
-	slices.SortStableFunc(result, func(a, b logs.LogEntry) int {
+	slices.SortFunc(result, func(a, b logs.LogEntry) int {
 		r := a.Timestamp.Compare(b.Timestamp)
+		if r == 0 {
+			r = strings.Compare(a.ID, b.ID)
+		}
 		return -r
 	})
 	if f.Limit != 0 && f.Limit < len(result) {

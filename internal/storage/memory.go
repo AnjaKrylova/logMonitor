@@ -4,6 +4,8 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"logmonitor/internal/logs"
 )
 
@@ -13,6 +15,7 @@ type MemoryLogRepository struct {
 }
 
 func (m *MemoryLogRepository) Save(e logs.LogEntry) error {
+	e.ID = uuid.NewString()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.entries = append(m.entries, e)

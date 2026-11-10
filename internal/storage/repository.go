@@ -33,7 +33,8 @@ func (f LogFilter) matches(e logs.LogEntry) bool {
 }
 
 type LogRepository interface {
+	// Save stores e and assigns it a unique ID.
 	Save(e logs.LogEntry) error
-	//  returns entries newest first
+	// Find returns entries newest first.
 	Find(f LogFilter) ([]logs.LogEntry, error)
 }

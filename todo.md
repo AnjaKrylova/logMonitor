@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 14 of 37 — cursor. (Exercise 13, `limit`, done 2026-11-09.)
-**Next step:** cursor — "next page starts here". First decide what a cursor points at (a timestamp? an ID?) and why offset (`skip`) breaks when new logs arrive while paging.
+**Current:** Exercise 15 of 37 — cursor. (Exercise 14, IDs, done 2026-11-10.)
+**Next step:** cursor — "next page starts here". First: why offset (`skip 50`) breaks when new logs arrive while paging; then what the cursor holds (timestamp + ID of the last entry on the page) and how `Find` continues after it.
 
 ---
 
@@ -105,10 +105,10 @@ From here on, **every exercise is one session** (renumbered 2026-11-08). Review 
 
 _Logs list — paging_
 - [x] **13. `limit`** ✅ (done 2026-11-09; `parseIntQueryParam` with a default, range check in the handler, cut in `Find`) — default 50, 1–500, else 400; `LogFilter.Limit` (0 = no limit), `Find` cuts after sorting; handler parses `?limit=`
-- [ ] **14. Cursor** — "next page starts here": the response carries a cursor, the client sends it back
+- [x] **14. IDs** ✅ (done 2026-11-10; UUID v4 via `github.com/google/uuid` in `Save`; tests ignore `ID` with `cmpopts.IgnoreFields`) — assign `LogEntry.ID` on ingest (unique, e.g. random hex); `Find` returns it. Comes before the cursor: timestamp + ID breaks ties between logs with the same timestamp (swapped 2026-11-09)
+- [ ] **15. Cursor** — "next page starts here": the response carries a cursor (timestamp + ID of the last entry, base64-encoded), the client sends it back
 
 _Log detail screen_ — params, data (re-parse `Raw` for nested JSON incl. stack), source, container + type, origin, raw line
-- [ ] **15. IDs** — assign `LogEntry.ID` on ingest (unique, e.g. random hex); `Find` returns it
 - [ ] **16. `GET /logs/{id}`** — `r.PathValue("id")`, 404 when unknown, the detail response
 
 _Dashboard screen_ — group by app + container type + level + message template. _Time bucketing, maps._

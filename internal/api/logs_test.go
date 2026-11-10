@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"logmonitor/internal/logs"
 	"logmonitor/internal/storage"
@@ -209,8 +211,9 @@ func TestLogsHandler_ServeHTTP(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Unmarshal failed: %v", err)
 			}
-			if !reflect.DeepEqual(got, d.wantResponse) {
-				t.Errorf("got %#v\nwant %#v", got.Logs, d.wantResponse.Logs)
+			// IDs are random (assigned by Save), so compare everything except ID.
+			if diff := cmp.Diff(d.wantResponse, got, cmpopts.IgnoreFields(logs.LogEntry{}, "ID")); diff != "" {
+				t.Errorf("response mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

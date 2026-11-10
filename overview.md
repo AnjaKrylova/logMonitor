@@ -308,6 +308,15 @@ Each entry: what was decided — why — the alternative not chosen.
   — Same rule as `from`/`to` (invalid → 400); a silent cap could make a
   client think it got everything. 50 matches the existing UI's page size.
   *Not chosen:* quietly capping at the maximum.
+- **The repository assigns `LogEntry.ID` in `Save`** (2026-11-10). — The one
+  choke point every entry passes (HTTP handler and fake source both create
+  entries); like a database assigning keys. Redis (Exercises 22–26) must do
+  the same; the interface doc says so. *Not chosen:* assigning in `ParseLog`
+  or in each producer (two places to remember). **Format: UUID v4** via
+  `github.com/google/uuid` (`uuid.NewString()`) — familiar, same as the Node
+  service's `randomUUID()`. *Not chosen:* `crypto/rand.Text()` (no
+  dependency, but unfamiliar format); v7 (time-ordered, possible later for
+  the cursor).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

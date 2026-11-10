@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"logmonitor/internal/logs"
 	"logmonitor/internal/storage"
@@ -147,10 +148,38 @@ func TestMemoryLogRepository_Find(t *testing.T) {
 				t.Fatalf("Find(%+v) failed: %v", d.filter, err)
 			}
 
-			if diff := cmp.Diff(d.want, result); diff != "" {
+			// IDs are random, so the table compares everything except ID;
+			// TestMemoryLogRepository_SaveAssignsUniqueIDs checks the IDs.
+			if diff := cmp.Diff(d.want, result, cmpopts.IgnoreFields(logs.LogEntry{}, "ID")); diff != "" {
 				t.Errorf("Find() mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestMemoryLogRepository_SaveAssignsUniqueIDs(t *testing.T) {
+	var repo storage.LogRepository = &storage.MemoryLogRepository{}
+	// Same content three times: only the ID can tell them apart.
+	for range 3 {
+		if err := repo.Save(logs.LogEntry{Timestamp: timePrefixParsed, Message: "same"}); err != nil {
+			t.Fatalf("Save failed: %v", err)
+		}
+	}
+
+	result, err := repo.Find(storage.LogFilter{})
+	if err != nil {
+		t.Fatalf("Find failed: %v", err)
+	}
+
+	seen := map[string]bool{}
+	for i, e := range result {
+		if e.ID == "" {
+			t.Errorf("entry %d has an empty ID", i)
+		}
+		if seen[e.ID] {
+			t.Errorf("entry %d has a duplicate ID %q", i, e.ID)
+		}
+		seen[e.ID] = true
 	}
 }
 

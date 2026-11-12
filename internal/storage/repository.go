@@ -12,6 +12,12 @@ type LogFilter struct {
 	App           string
 	ContainerType string
 	Limit         int // max entries, newest first; 0 = no limit
+	After         Position
+}
+
+type Position struct {
+	Timestamp time.Time
+	ID        string
 }
 
 func (f LogFilter) matches(e logs.LogEntry) bool {
@@ -29,6 +35,10 @@ func (f LogFilter) matches(e logs.LogEntry) bool {
 	if !f.To.IsZero() && atOrAfterTo {
 		return false
 	}
+	if !f.After.Timestamp.IsZero() && !isAfter(e, f.After) {
+		return false
+	}
+
 	return true
 }
 
@@ -38,4 +48,8 @@ type LogRepository interface {
 	// Find returns the entries matching f, newest first;
 	// entries with the same timestamp are ordered by ID, descending.
 	Find(f LogFilter) ([]logs.LogEntry, error)
+}
+
+func isAfter(e logs.LogEntry, p Position) bool {
+	return e.Timestamp.Before(p.Timestamp) || (e.Timestamp.Equal(p.Timestamp) && e.ID < p.ID)
 }

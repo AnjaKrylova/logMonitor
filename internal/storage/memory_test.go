@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -258,5 +259,49 @@ func TestMemoryLogRepository_FindBreaksTiesByID(t *testing.T) {
 		if result[i].ID < result[i+1].ID {
 			t.Errorf("Find returned entries not sorted by ID: entry %d has ID %q, entry %d has ID %q", i, result[i].ID, i+1, result[i+1].ID)
 		}
+	}
+}
+
+func TestMemoryLogRepository_FindAfterPosition(t *testing.T) {
+	// Each row saves one entry per offset, asks Find for the real order
+	// (IDs are random), then uses all[after] as the position.
+	data := []struct {
+		name    string
+		offsets []time.Duration // timestamp of each entry, relative to timePrefixParsed
+		after   int             // index in the full result used as the position
+	}{
+		{"different timestamps", []time.Duration{0, time.Second, 2 * time.Second, 3 * time.Second}, 1},
+		{"same timestamp: the ID decides", []time.Duration{0, 0, 0, 0}, 1},
+		{"tie at the position, older entries after it", []time.Duration{0, time.Second, time.Second, time.Second}, 1},
+		{"position is the last entry: nothing after it", []time.Duration{0, time.Second, 2 * time.Second}, 2},
+	}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			var repo storage.LogRepository = &storage.MemoryLogRepository{}
+			for i, offset := range d.offsets {
+				if err := repo.Save(logs.LogEntry{
+					Timestamp: timePrefixParsed.Add(offset),
+					Message:   "test" + strconv.Itoa(i),
+				}); err != nil {
+					t.Fatalf("Save failed: %v", err)
+				}
+			}
+
+			all, err := repo.Find(storage.LogFilter{})
+			if err != nil {
+				t.Fatalf("Find failed: %v", err)
+			}
+
+			result, err := repo.Find(storage.LogFilter{
+				After: storage.Position{Timestamp: all[d.after].Timestamp, ID: all[d.after].ID},
+			})
+			if err != nil {
+				t.Fatalf("Find failed: %v", err)
+			}
+			if diff := cmp.Diff(all[d.after+1:], result, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("Find with After mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }

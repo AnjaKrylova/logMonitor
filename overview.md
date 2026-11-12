@@ -317,6 +317,14 @@ Each entry: what was decided — why — the alternative not chosen.
   service's `randomUUID()`. *Not chosen:* `crypto/rand.Text()` (no
   dependency, but unfamiliar format); v7 (time-ordered, possible later for
   the cursor).
+- **Paging uses a cursor, not an offset** (2026-11-12). The cursor is the
+  `Position{Timestamp, ID}` of the last entry the client saw;
+  `LogFilter.After` keeps only entries after it. `Find` orders by timestamp,
+  then ID (both descending), so "after" is decidable from the cursor's two
+  values alone. — Offset (`skip`) repeats entries when new logs arrive and
+  skips entries when old ones expire. *Not chosen:* offset like the Node
+  service; save order as tie-breaker (not in the cursor, not portable to
+  Redis).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

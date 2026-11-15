@@ -141,6 +141,7 @@ func TestLogsHandler_ServeHTTP(t *testing.T) {
 		{"limit is not a number", "/logs?limit=abc", nil, 400, LogsResponse{}},
 		{"limit is zero", "/logs?limit=0", nil, 400, LogsResponse{}},
 		{"limit above the maximum", "/logs?limit=501", nil, 400, LogsResponse{}},
+		{"cursor is not a cursor", "/logs?cursor=not-a-cursor!", nil, 400, LogsResponse{}},
 		{"nonexistent app filter",
 			"/logs?app=nonexistent-app",
 			[]logs.LogEntry{
@@ -250,4 +251,88 @@ func TestLogsHandler_ServeHTTP_Limit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLogsHandler_ServeHTTP_NextCursor(t *testing.T) {
+	// 3 entries saved; a full page (len == limit) may have more after it.
+	data := []struct {
+		name       string
+		requestURL string
+		wantCursor bool
+	}{
+		{"full page has a next cursor", "/logs?limit=2", true},
+		{"last page has no next cursor", "/logs?limit=5", false},
+	}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			var repo storage.LogRepository = &storage.MemoryLogRepository{}
+			for i := range 3 {
+				repo.Save(logs.LogEntry{Timestamp: logTime.Add(time.Duration(i) * time.Minute)})
+			}
+			h := &LogsHandler{repo}
+			req := httptest.NewRequest(http.MethodGet, d.requestURL, nil)
+			w := httptest.NewRecorder()
+
+			h.ServeHTTP(w, req)
+
+			var got LogsResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+				t.Fatalf("Unmarshal failed: %v", err)
+			}
+			if gotCursor := got.NextCursor != ""; gotCursor != d.wantCursor {
+				t.Errorf("nextCursor present = %v, want %v (nextCursor %q)", gotCursor, d.wantCursor, got.NextCursor)
+			}
+		})
+	}
+}
+
+func TestLogsHandler_ServeHTTP_Paging(t *testing.T) {
+	var repo storage.LogRepository = &storage.MemoryLogRepository{}
+	for i := range 5 {
+		repo.Save(logs.LogEntry{Timestamp: logTime.Add(time.Duration(i) * time.Minute)})
+	}
+	all, err := repo.Find(storage.LogFilter{})
+	if err != nil {
+		t.Fatalf("Find failed: %v", err)
+	}
+	h := &LogsHandler{repo}
+
+	// 5 entries with limit 2 → pages of 2, 2, 1. Following the cursors must
+	// return every entry exactly once, in Find's order.
+	page1 := getLogs(t, h, "/logs?limit=2")
+	page2 := getLogs(t, h, "/logs?limit=2&cursor="+page1.NextCursor)
+	page3 := getLogs(t, h, "/logs?limit=2&cursor="+page2.NextCursor)
+
+	pages := []struct {
+		name       string
+		got        LogsResponse
+		want       []logs.LogEntry
+		wantCursor bool
+	}{
+		{"page 1", page1, all[0:2], true},
+		{"page 2", page2, all[2:4], true},
+		{"page 3 (last)", page3, all[4:], false},
+	}
+	for _, p := range pages {
+		if diff := cmp.Diff(p.want, p.got.Logs); diff != "" {
+			t.Errorf("%s mismatch (-want +got):\n%s", p.name, diff)
+		}
+		if gotCursor := p.got.NextCursor != ""; gotCursor != p.wantCursor {
+			t.Errorf("%s: nextCursor present = %v, want %v", p.name, gotCursor, p.wantCursor)
+		}
+	}
+}
+
+// getLogs sends GET url to h and decodes the JSON response.
+func getLogs(t *testing.T, h http.Handler, url string) LogsResponse {
+	t.Helper()
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, url, nil))
+
+	var resp LogsResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("GET %s: Unmarshal failed: %v", url, err)
+	}
+	return resp
 }

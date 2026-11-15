@@ -325,6 +325,12 @@ Each entry: what was decided — why — the alternative not chosen.
   skips entries when old ones expire. *Not chosen:* offset like the Node
   service; save order as tie-breaker (not in the cursor, not portable to
   Redis).
+- **The cursor on the wire is opaque: `base64.RawURLEncoding` of the JSON
+  `Position`** (2026-11-15). `nextCursor` is sent only when the page is full
+  (`len == limit`), `omitempty` otherwise; a bad `?cursor=` → 400. — URL-safe
+  without escaping (no `+` `/` `=`); clients can't depend on what's inside,
+  so the content can change later. *Not chosen:* `StdEncoding` (`+` becomes
+  a space in a query string); exposing timestamp and ID as two parameters.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

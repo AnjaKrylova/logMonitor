@@ -23,7 +23,8 @@ type LogsHandler struct {
 }
 
 type LogsResponse struct {
-	Logs []logs.LogEntry `json:"logs"`
+	Logs       []logs.LogEntry `json:"logs"`
+	NextCursor string          `json:"nextCursor,omitempty"`
 }
 
 func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -53,12 +54,23 @@ func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	var cursor storage.Position
+	s := r.URL.Query().Get("cursor")
+	if s != "" {
+		cursor, err = decodeCursor(s)
+		if err != nil {
+			slog.Warn("invalid query parameter", "error", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
 	filter := storage.LogFilter{
 		App:           app,
 		From:          fromTime,
 		To:            toTime,
 		ContainerType: containerType,
 		Limit:         limit,
+		After:         cursor,
 	}
 	found, err := h.Repository.Find(filter)
 	if err != nil {
@@ -69,8 +81,19 @@ func (h *LogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if found == nil {
 		found = []logs.LogEntry{}
 	}
+
+	response := LogsResponse{Logs: found}
+	if len(found) == limit {
+		lastLog := found[len(found)-1]
+		p := storage.Position{
+			Timestamp: lastLog.Timestamp,
+			ID:        lastLog.ID,
+		}
+		response.NextCursor = encodeCursor(p)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(LogsResponse{Logs: found})
+	json.NewEncoder(w).Encode(response)
 }
 
 func parseTimeQueryParam(uv url.Values, paramValue string) (time.Time, error) {

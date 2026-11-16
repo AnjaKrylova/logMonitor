@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"errors"
 	"strconv"
 	"sync"
 	"testing"
@@ -304,4 +305,36 @@ func TestMemoryLogRepository_FindAfterPosition(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMemoryLogRepository_FindByID(t *testing.T) {
+	var repo storage.LogRepository = &storage.MemoryLogRepository{}
+	for i := range 2 {
+		if err := repo.Save(logs.LogEntry{Timestamp: timePrefixParsed, Message: "test" + strconv.Itoa(i)}); err != nil {
+			t.Fatalf("Save failed: %v", err)
+		}
+	}
+	// IDs are random, so ask Find for them first.
+	all, err := repo.Find(storage.LogFilter{})
+	if err != nil {
+		t.Fatalf("Find failed: %v", err)
+	}
+
+	t.Run("known ID returns that entry", func(t *testing.T) {
+		got, err := repo.FindByID(all[1].ID)
+		if err != nil {
+			t.Fatalf("FindByID(%q) failed: %v", all[1].ID, err)
+		}
+		if diff := cmp.Diff(all[1], got); diff != "" {
+			t.Errorf("FindByID mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("unknown ID returns ErrNotFound", func(t *testing.T) {
+		_, err := repo.FindByID("no-such-id")
+		// errors.Is also matches when ErrNotFound is wrapped, e.g. fmt.Errorf("...: %w", ErrNotFound).
+		if !errors.Is(err, storage.ErrNotFound) {
+			t.Errorf("FindByID(unknown) error = %v, want ErrNotFound", err)
+		}
+	})
 }

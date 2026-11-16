@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 16 of 37 — `GET /logs/{id}`. (Exercise 15b, cursor API, done 2026-11-15: paging for the Logs list is complete.)
-**Next step:** `GET /logs/{id}` — the Log detail screen opens one entry by its ID; unknown ID → 404.
+**Current:** Exercise 17 of 37 — Dashboard: count per group. (Exercise 16, `GET /logs/{id}`, done 2026-11-16: Logs list + Log detail are served.)
+**Next step:** Dashboard screen starts — group entries by app + container type + level + message template, and count each group for one day. New: a struct as a map key.
 
 ---
 
@@ -110,7 +110,7 @@ _Logs list — paging_
 - [x] **15b. Cursor — API** ✅ (done 2026-11-15; `cursor.go` with `encodeCursor`/`decodeCursor`, `nextCursor` on full pages, `?cursor=` → `After`) — `?cursor=` in, `nextCursor` out (base64 + JSON of timestamp + ID); invalid cursor → 400
 
 _Log detail screen_ — params, data (re-parse `Raw` for nested JSON incl. stack), source, container + type, origin, raw line
-- [ ] **16. `GET /logs/{id}`** — `r.PathValue("id")`, 404 when unknown, the detail response
+- [x] **16. `GET /logs/{id}`** ✅ (done 2026-11-16; `FindByID` + `ErrNotFound`, `LogsHandler.ServeLog` via `mux.HandleFunc`; returns the stored `LogEntry` — nested `data` stays flattened in `Fields`, revisit if the UI needs the original JSON tree) — `r.PathValue("id")`, 404 when unknown, the detail response
 
 _Dashboard screen_ — group by app + container type + level + message template. _Time bucketing, maps._
 - [ ] **17. Count per group** — a group key struct as a map key → `map[GroupKey]int` for one day

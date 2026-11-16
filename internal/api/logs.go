@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -115,4 +116,21 @@ func parseIntQueryParam(uv url.Values, paramValue string, defaultV int) (int, er
 		return vParsed, fmt.Errorf("invalid %q: %w", paramValue, err)
 	}
 	return vParsed, nil
+}
+
+func (h *LogsHandler) ServeLog(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	entry, err := h.Repository.FindByID(id)
+	if errors.Is(err, storage.ErrNotFound) {
+		slog.Warn("Log ID is not found", "id", id)
+		http.Error(w, "log entry not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		slog.Error("failed to find log entry", "error", err)
+		http.Error(w, "failed to find log entry", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entry)
 }

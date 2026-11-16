@@ -331,6 +331,15 @@ Each entry: what was decided — why — the alternative not chosen.
   without escaping (no `+` `/` `=`); clients can't depend on what's inside,
   so the content can change later. *Not chosen:* `StdEncoding` (`+` becomes
   a space in a query string); exposing timestamp and ID as two parameters.
+- **"Not found" is a sentinel error, `storage.ErrNotFound`** (2026-11-16).
+  `FindByID` returns it; the handler checks `errors.Is` → 404, any other
+  error → 500. — Redis can also fail, so a `bool` couldn't say *why*;
+  `errors.Is` still matches when an implementation wraps it. *Not chosen:*
+  `(LogEntry, bool)` like a map lookup.
+- **`GET /logs/{id}` is a second method on `LogsHandler` (`ServeLog`)**,
+  registered with `mux.HandleFunc(..., lh.ServeLog)` (2026-11-16). — Same
+  repository, both log routes together; a method value needs no new type.
+  *Not chosen:* a separate `LogHandler` struct.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

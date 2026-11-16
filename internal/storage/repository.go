@@ -1,10 +1,24 @@
 package storage
 
 import (
+	"errors"
 	"time"
 
 	"logmonitor/internal/logs"
 )
+
+// ErrNotFound is returned by FindByID when no entry has the given ID.
+var ErrNotFound = errors.New("log entry not found")
+
+type LogRepository interface {
+	// Save stores e and assigns it a unique ID.
+	Save(e logs.LogEntry) error
+	// Find returns the entries matching f, newest first;
+	// entries with the same timestamp are ordered by ID, descending.
+	Find(f LogFilter) ([]logs.LogEntry, error)
+	// FindByID returns the entry with the given ID, or ErrNotFound.
+	FindByID(id string) (logs.LogEntry, error)
+}
 
 type LogFilter struct {
 	From          time.Time // inclusive
@@ -40,14 +54,6 @@ func (f LogFilter) matches(e logs.LogEntry) bool {
 	}
 
 	return true
-}
-
-type LogRepository interface {
-	// Save stores e and assigns it a unique ID.
-	Save(e logs.LogEntry) error
-	// Find returns the entries matching f, newest first;
-	// entries with the same timestamp are ordered by ID, descending.
-	Find(f LogFilter) ([]logs.LogEntry, error)
 }
 
 func isAfter(e logs.LogEntry, p Position) bool {

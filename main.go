@@ -63,6 +63,8 @@ func main() {
 	lh := &api.LogsHandler{Repository: repo}
 	mux.Handle("GET /logs", lh)
 
+	mux.HandleFunc("GET /logs/{id}", lh.ServeLog)
+
 	err := s.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		panic(err)

@@ -336,3 +336,48 @@ func getLogs(t *testing.T, h http.Handler, url string) LogsResponse {
 	}
 	return resp
 }
+
+func TestLogsHandler_ServeLog(t *testing.T) {
+	var repo storage.LogRepository = &storage.MemoryLogRepository{}
+	repo.Save(logs.LogEntry{Timestamp: logTime, Container: "web-1", Message: "User %s not found", MessageParams: []string{"123"}})
+	all, err := repo.Find(storage.LogFilter{})
+	if err != nil {
+		t.Fatalf("Find failed: %v", err)
+	}
+	h := &LogsHandler{repo}
+
+	data := []struct {
+		name     string
+		id       string
+		wantCode int
+	}{
+		{"known ID returns the entry", all[0].ID, http.StatusOK},
+		{"unknown ID returns 404", "no-such-id", http.StatusNotFound},
+	}
+
+	for _, d := range data {
+		t.Run(d.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/logs/"+d.id, nil)
+			// The router fills {id} only when it routes the request; calling
+			// the handler directly, the test sets the path value itself.
+			req.SetPathValue("id", d.id)
+			w := httptest.NewRecorder()
+
+			h.ServeLog(w, req)
+
+			if w.Code != d.wantCode {
+				t.Fatalf("code got %d, want %d", w.Code, d.wantCode)
+			}
+			if d.wantCode != http.StatusOK {
+				return
+			}
+			var got logs.LogEntry
+			if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+				t.Fatalf("Unmarshal failed: %v", err)
+			}
+			if diff := cmp.Diff(all[0], got); diff != "" {
+				t.Errorf("entry mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

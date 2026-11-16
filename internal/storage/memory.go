@@ -44,3 +44,14 @@ func (m *MemoryLogRepository) Find(f LogFilter) ([]logs.LogEntry, error) {
 	}
 	return result, nil
 }
+
+func (m *MemoryLogRepository) FindByID(id string) (logs.LogEntry, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, e := range m.entries {
+		if e.ID == id {
+			return e, nil
+		}
+	}
+	return logs.LogEntry{}, ErrNotFound
+}

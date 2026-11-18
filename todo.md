@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 17 of 37 — Dashboard: count per group. (Exercise 16, `GET /logs/{id}`, done 2026-11-16: Logs list + Log detail are served.)
-**Next step:** Dashboard screen starts — group entries by app + container type + level + message template, and count each group for one day. New: a struct as a map key.
+**Current:** Exercise 18 of 37 — Dashboard: hourly series. (Exercise 17, count per group, done 2026-11-18.)
+**Next step:** for each group, count per hour 00–23 (the bars on each dashboard card); hours with no logs must still be there as 0. New: a fixed-size array `[24]int`.
 
 ---
 
@@ -113,7 +113,7 @@ _Log detail screen_ — params, data (re-parse `Raw` for nested JSON incl. stack
 - [x] **16. `GET /logs/{id}`** ✅ (done 2026-11-16; `FindByID` + `ErrNotFound`, `LogsHandler.ServeLog` via `mux.HandleFunc`; returns the stored `LogEntry` — nested `data` stays flattened in `Fields`, revisit if the UI needs the original JSON tree) — `r.PathValue("id")`, 404 when unknown, the detail response
 
 _Dashboard screen_ — group by app + container type + level + message template. _Time bucketing, maps._
-- [ ] **17. Count per group** — a group key struct as a map key → `map[GroupKey]int` for one day
+- [x] **17. Count per group** ✅ (done 2026-11-18; new package `internal/stats`, `GroupKey`, `CountByGroup`; the caller picks the day via `Find` From/To) — a group key struct as a map key → `map[GroupKey]int` for one day
 - [ ] **18. Hourly series** — 24 slots per group, `Timestamp.Hour()` → slot; a fixed `[24]int` keeps zero hours
 - [ ] **19. Dashboard order** (small) — sort groups by count, biggest first; ties stable
 

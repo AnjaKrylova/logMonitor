@@ -340,6 +340,14 @@ Each entry: what was decided — why — the alternative not chosen.
   registered with `mux.HandleFunc(..., lh.ServeLog)` (2026-11-16). — Same
   repository, both log routes together; a method value needs no new type.
   *Not chosen:* a separate `LogHandler` struct.
+- **Aggregations live in `internal/stats`** (2026-11-18): pure functions over
+  `[]logs.LogEntry`, e.g. `CountByGroup` → `map[GroupKey]int`. `GroupKey` =
+  app + container type + level + message template (one dashboard card).
+  Choosing the day is the caller's job (`Find` with `From`/`To`). — Matches
+  "aggregations are derived data"; `logs` and `storage` stay unaware of it;
+  no HTTP or storage in the tests. *Not chosen:* counting inside the
+  repository; `MessageParams` in the key (slices aren't comparable, and
+  grouping is by template).
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

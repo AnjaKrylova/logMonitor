@@ -348,6 +348,11 @@ Each entry: what was decided — why — the alternative not chosen.
   no HTTP or storage in the tests. *Not chosen:* counting inside the
   repository; `MessageParams` in the key (slices aren't comparable, and
   grouping is by template).
+- **Dashboard hours are UTC hours** (2026-11-19): bucket = `Timestamp.Hour()`,
+  which is UTC because `ParseLog` stores every entry in UTC. — Simplest; no
+  location to pass around. *Not chosen (yet):* Europe/Copenhagen hours via
+  `t.In(loc).Hour()`; revisit in Exercise 35 ("today") if the team wants
+  local hours.
 - **Filter rules live in `LogFilter.matches(e)`**, next to the struct. — One
   place defines what a filter means; `Find` just loops and keeps matches.
 

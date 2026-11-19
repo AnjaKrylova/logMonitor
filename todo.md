@@ -5,8 +5,8 @@ Every step is TDD: red → green → refactor (see overview).
 
 ## Status
 
-**Current:** Exercise 18 of 37 — Dashboard: hourly series. (Exercise 17, count per group, done 2026-11-18.)
-**Next step:** for each group, count per hour 00–23 (the bars on each dashboard card); hours with no logs must still be there as 0. New: a fixed-size array `[24]int`.
+**Current:** Exercise 20 of 37 — `GET /stats`. (Exercise 19, dashboard order, done 2026-11-19: the Dashboard logic is complete.)
+**Next step:** `GET /stats?day=2026-11-19` — find that day's entries (`Find` with From/To), build `Dashboard(...)`, return the cards as JSON.
 
 ---
 
@@ -114,12 +114,13 @@ _Log detail screen_ — params, data (re-parse `Raw` for nested JSON incl. stack
 
 _Dashboard screen_ — group by app + container type + level + message template. _Time bucketing, maps._
 - [x] **17. Count per group** ✅ (done 2026-11-18; new package `internal/stats`, `GroupKey`, `CountByGroup`; the caller picks the day via `Find` From/To) — a group key struct as a map key → `map[GroupKey]int` for one day
-- [ ] **18. Hourly series** — 24 slots per group, `Timestamp.Hour()` → slot; a fixed `[24]int` keeps zero hours
-- [ ] **19. Dashboard order** (small) — sort groups by count, biggest first; ties stable
+- [x] **18. Hourly series** ✅ (done 2026-11-19; `HourlyByGroup` → `map[GroupKey][24]int`, UTC hours, copy-out/change/copy-back) — 24 slots per group, `Timestamp.Hour()` → slot; a fixed `[24]int` keeps zero hours
+- [x] **19. Dashboard order** ✅ (done 2026-11-19; `Group` + `Dashboard`: count desc, then App, Message — `slices.SortFunc` + `cmp.Or`) (small) — sort groups by count, biggest first; ties stable
 
 _Statistics API_ — logging same as `/logs` (`Warn` on 400, `Error` on 500)
 - [ ] **20. `GET /stats`** — groups with count + hourly series for one day; `?day=`
 - [ ] **21. Stats filters** — app, container type, level (reuse `/logs` parsing)
+- [ ] **21b. Sort options** (the dashboard's sort dropdown) — `?sort=count|app|message`; a `SortBy` enum with `iota`; each option with its own tie rule. Idea from 2026-11-19, kept out of 19 to keep it small
 
 _Redis_ — `RedisLogRepository` behind the same interface. Logging: `slog.Error` when Redis is unreachable; repository returns errors, callers log them
 - [ ] **22. Meet Redis** — run it locally; a list, a hash and a sorted set in `redis-cli`; pick a Go client (`go get`), ping from a tiny test
